@@ -2,8 +2,8 @@ name: Update Taiwan Techmeme
 
 on:
   schedule:
-    - cron: '0 * * * *' # 每小時執行一次
-  workflow_dispatch:      # 允許手動點擊執行
+    - cron: '0 */4 * * *' # 每 4 小時執行一次（於 0:00, 4:00, 8:00... 觸發）
+  workflow_dispatch:      # 依然保留手動觸發功能
 
 jobs:
   build:
