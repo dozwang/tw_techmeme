@@ -61,7 +61,7 @@ def is_similar(a, b):
     return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
 
 def fetch_bnext_custom():
-    """進階抓取：解析數位時代文章列表頁 HTML"""
+    """進階抓取：直接解析數位時代文章列表 HTML，解決 RSS 斷線問題"""
     url = "https://www.bnext.com.tw/articles"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -72,20 +72,24 @@ def fetch_bnext_custom():
         resp = requests.get(url, headers=headers, timeout=30, verify=False)
         resp.encoding = 'utf-8'
         soup = BeautifulSoup(resp.text, 'html.parser')
-        # 根據數位時代目前結構定位文章標題連結
-        items = soup.select('a.item_title') or soup.select('.item_box a')
-        for item in items[:12]:
+        # 抓取標籤為 item_title 的連結
+        items = soup.select('a.item_title')
+        for item in items[:15]:
             title = item.get_text().strip()
             link = item.get('href')
             if not title or not link: continue
             if link.startswith('/'): link = "https://www.bnext.com.tw" + link
             articles.append({
-                'raw_title': title, 'link': link, 'source': '數位時代(Web)', 
-                'time': datetime.datetime.now(TW_TZ), 'tag_html': '[數位]', 
-                'is_analysis': False, 'raw_summary': ""
+                'raw_title': title, 
+                'link': link, 
+                'source': '數位時代(Web)', 
+                'time': datetime.datetime.now(TW_TZ), 
+                'tag_html': '[數位]', 
+                'is_analysis': False, 
+                'raw_summary': ""
             })
     except Exception as e:
-        print(f"Bnext Scraping Error: {e}")
+        print(f"數位時代進階抓取錯誤: {e}")
     return articles
 
 def fetch_data(feed_list):
@@ -183,6 +187,8 @@ def render_column(daily_clusters, title_prefix):
             html += f"<div class='story-block {'priority' if group['priority'] else ''}' data-id=\"{safe_id}\" title=\"{first.get('display_summary','')}\">"
             html += f"<div class='headline-wrapper'><span class='star-btn' onclick='toggleStar(\"{safe_id}\")'>★</span>"
             html += f"<a class='headline' href='{first['link']}' target='_blank'>{first['display_title']} <span class='source-tag'>{meta}</span></a></div>"
+            if 'raw_title' in first and first['display_title'].find(first['raw_title']) == -1:
+                html += f"<div class='original-title'>{first['raw_title']}</div>"
             for up in sorted(group['articles'][1:], key=lambda x: x['time'], reverse=True)[:5]:
                 html += f"<a class='sub-link' href='{up['link']}' target='_blank'>↳ {up['source']}: {up.get('translated_title', up['raw_title'])}</a>"
             html += "</div>"
@@ -193,7 +199,7 @@ def main():
     jk_raw, jk_st = fetch_data(CONFIG['FEEDS']['JK'])
     tw_raw, tw_st = fetch_data(CONFIG['FEEDS']['TW'])
     
-    # 增加數位時代進階抓取
+    # 加入數位時代進階抓取
     bnext_web = fetch_bnext_custom()
     if bnext_web:
         today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
@@ -203,11 +209,57 @@ def main():
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
     all_st = {**intl_st, **jk_st, **tw_st}
-    stats_items = [f"<div class='stat-row'><span class='stat-name'>{k}</span><div class='stat-bar-container'><div class='stat-bar-fill' style='width: {min(v*4,100)}%; background: {'var(--accent)' if v>0 else '#e74c3c'}'></div></div><span class='stat-count'>{v}</span></div>" for k, v in sorted(all_st.items(), key=lambda x: x[1], reverse=True)]
     
-    # 此處省略 HTML Template (保持與之前一致) ... 僅更新最後寫入
-    # (請確認 CSS 部分包含 .stat-row 等樣式)
-    with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html) # full_html 為組合好的字串
+    stats_items = []
+    for k, v in sorted(all_st.items(), key=lambda x: x[1], reverse=True):
+        status_color = "var(--accent)" if v > 0 else "#e74c3c"
+        stats_items.append(f"<div class='stat-row'><span class='stat-name'>{'● ' if v > 0 else '○ '}{k}</span><div class='stat-bar-container'><div class='stat-bar-fill' style='width: {min(v*4,100)}%; background: {status_color}'></div></div><span class='stat-count' style='color: {status_color}'>{v}</span></div>")
+    
+    full_html = f"""
+    <html><head><meta charset='UTF-8'><title>{SITE_TITLE}</title><style>
+        :root {{ --bg: #fff; --text: #333; --meta: #777; --border: #ddd; --hi: #ffff0033; --link: #1a0dab; --visited: #609; --accent: #27ae60; }}
+        @media (prefers-color-scheme: dark) {{ :root {{ --bg: #1a1a1a; --text: #ccc; --meta: #999; --border: #333; --hi: #ffd70033; --link: #8ab4f8; --visited: #c58af9; }} }}
+        body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.2; }}
+        .header {{ padding: 10px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 100; }}
+        .controls {{ display: flex; gap: 10px; align-items: center; }}
+        .btn {{ cursor: pointer; padding: 4px 12px; border: 1px solid var(--text); font-size: 11px; font-weight: bold; background: var(--bg); color: var(--text); border-radius: 4px; }}
+        .btn.active {{ background: #f1c40f; color: #000; border-color: #f1c40f; }}
+        #stats-details {{ display: none; padding: 15px 20px; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border); column-count: 2; }}
+        @media (prefers-color-scheme: dark) {{ #stats-details {{ background: #222; }} }}
+        .stat-row {{ display: flex; align-items: center; gap: 12px; padding: 3px 0; break-inside: avoid; border-bottom: 1px solid rgba(0,0,0,0.03); }}
+        .stat-name {{ font-size: 11px; flex: 1; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+        .stat-bar-container {{ width: 80px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden; }}
+        .stat-bar-fill {{ height: 100%; border-radius: 3px; }}
+        .stat-count {{ font-size: 11px; font-weight: bold; min-width: 25px; text-align: right; font-family: monospace; }}
+        .wrapper {{ display: grid; grid-template-columns: 1fr 1fr 1fr; width: 100%; max-width: 1900px; margin: 0 auto; gap: 1px; background: var(--border); min-height: 100vh; }}
+        .river {{ background: var(--bg); padding: 10px 15px; }}
+        .river-title {{ font-size: 17px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 5px; }}
+        .column-stats {{ font-size: 10px; color: var(--meta); margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dashed var(--border); }}
+        .date-header {{ background: #444; color: #fff; padding: 2px 8px; font-size: 11px; margin: 15px 0 5px; font-weight: bold; }}
+        .story-block {{ padding: 8px 0; border-bottom: 1px solid var(--border); }}
+        .story-block.priority {{ border-left: 3px solid var(--link); padding-left: 8px; }}
+        .kw-highlight {{ background-color: var(--hi); border-radius: 2px; padding: 0 2px; font-weight: 600; color: #d35400; }}
+        .headline {{ color: var(--link); text-decoration: none; font-size: 14.5px; font-weight: bold; }}
+        .headline:visited {{ color: var(--visited); }}
+        .original-title {{ font-size: 11px; color: var(--meta); margin: 2px 0 4px 22px; }}
+        .sub-link {{ display: block; font-size: 11px; color: var(--link); opacity: 0.8; margin: 4px 0 0 22px; text-decoration: none; }}
+        .source-tag {{ font-size: 11px; color: var(--meta); font-weight: normal; }}
+        .star-btn {{ cursor: pointer; color: #ccc; margin-right: 6px; font-size: 16px; }}
+        .star-btn.active {{ color: #f1c40f; }}
+        body.only-stars .story-block:not(.has-star) {{ display: none; }}
+    </style></head><body>
+        <div class='header'><h1>{SITE_TITLE}</h1><div class='controls'><div id='stats-btn' class='btn' onclick='toggleStats()'>📊 來源統計</div><div id='star-filter' class='btn' onclick='toggleStarFilter()'>★ 僅看星號</div><div style="font-size:11px; color:var(--meta);">{now_str}</div></div></div>
+        <div id="stats-details">{"".join(stats_items)}</div>
+        <div class='wrapper'>{render_column(intl_cls, "Global & Strategy")}{render_column(jk_cls, "Japan/Korea Tech")}{render_column(tw_cls, "Taiwan IT & Biz")}</div>
+        <script>
+            function toggleStats() {{ const p = document.getElementById('stats-details'); const btn = document.getElementById('stats-btn'); const isOpen = p.style.display === 'block'; p.style.display = isOpen ? 'none' : 'grid'; btn.classList.toggle('active', !isOpen); }}
+            function toggleStarFilter() {{ document.getElementById('star-filter').classList.toggle('active'); document.body.classList.toggle('only-stars'); }}
+            function toggleStar(link) {{ let b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]'); b.includes(link) ? b = b.filter(i => i !== link) : b.push(link); localStorage.setItem('tech_bookmarks', JSON.stringify(b)); updateStarUI(); }}
+            function updateStarUI() {{ const b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]'); document.querySelectorAll('.story-block').forEach(el => {{ const isStarred = b.includes(el.getAttribute('data-id')); el.querySelector('.star-btn').classList.toggle('active', isStarred); el.classList.toggle('has-star', isStarred); }}); }}
+            document.addEventListener('DOMContentLoaded', updateStarUI);
+        </script></body></html>
+    """
+    with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
     save_cache(TRANS_CACHE)
 
 if __name__ == "__main__": main()
