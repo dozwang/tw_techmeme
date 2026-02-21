@@ -1,15 +1,25 @@
 {
-  "BLACKLIST": ["暗物質", "哈伯望遠鏡", "韋伯望遠鏡", "黑洞", "銀河系", "關稅", "經貿", "外交", "考古", "疫苗", "殺蟲劑", "閱讀器", "三星手機", "RAZR", "XBOX","RFK" ],
-  "WHITELIST": ["AI", "生成式AI", "雲原生", "軟體", "軟體開發", "CLOUD", "CIO", "CISO", "DEVOPS", "DEVSECOPS", "FINOPS", "平台工程", "DOCKER", "KUBERNETES"],
+  "BLACKLIST_GENERAL": ["外交", "考古", "疫苗", "關稅", "經貿", "運動", "娛樂", "影劇", "天氣", "選舉", "政治", "社會新聞", "RFK","國稅"],
+  "BLACKLIST_TECH_RELATED": ["暗物質", "哈伯望遠鏡", "韋伯望遠鏡", "黑洞", "銀河系", "天文", "量子力學", "元宇宙", "NFT", "殺蟲劑", "閱讀器", "三星手機", "RAZR", "XBOX"],
+  "WHITELIST": ["AI", "Copilot", "SaaS", "生成式AI", "雲原生", "軟體開發", "CIO", "CISO", "DEVOPS", "半導體", "TSMC", "三星", "海力士"],
+  "TERM_MAP": {
+    "コパイロット": "Copilot",
+    "クラウド": "Cloud",
+    "生成 AI": "生成式 AI",
+    "ジェネレーティブ AI": "Generative AI",
+    "ファウンドリ": "Foundry",
+    "チップレット": "Chiplet",
+    "デジタルトランスフォーメーション": "DX",
+    "삼성전자": "Samsung",
+    "하이닉스": "SK Hynix",
+    "네이버": "NAVER",
+    "코파일럿": "Copilot",
+    "클라우드": "Cloud"
+  },
   "FEEDS": {
     "INTL": [
       {"url": "https://stratechery.passport.online/feed/rss/CKcytLmgkRgmzv33UPinr", "tag": "[分析]"},
       {"url": "https://siliconangle.com/feed/", "tag": ""},
-      {"url": "https://www.crn.com/rss/cloud", "tag": ""},
-      {"url": "https://www.crn.com/rss/computing", "tag": ""},
-      {"url": "https://www.crn.com/rss/data-center", "tag": ""},
-      {"url": "https://www.crn.com/rss/software", "tag": ""},
-      {"url": "https://www.crn.com/rss/networking", "tag": ""},
       {"url": "https://techcrunch.com/feed/", "tag": ""},
       {"url": "https://www.theverge.com/rss/partner/techmeme-full-article/rss.xml", "tag": ""},
       {"url": "https://www.wired.com/feed/rss", "tag": ""},
@@ -24,11 +34,8 @@
       {"url": "https://xtech.nikkei.com/rss/index.rdf", "tag": "[日]"},
       {"url": "https://www.sbbit.jp/rss/Special.rss", "tag": "[日]"},
       {"url": "https://www.sbbit.jp/rss/HotTopics.rss", "tag": "[日]"},
-      {"url": "https://thinkit.co.jp/rss/all/feed.xml", "tag": "[日]"},
       {"url": "https://it.impress.co.jp/rss/all/index.rdf", "tag": "[日]"},
-      {"url": "https://asia.nikkei.com/rss/feed/nar", "tag": "[日]"},
-      {"url": "http://www.koreaherald.com/common/rss_xml.php?ct=1003", "tag": "[韓]"},
-      {"url": "https://en.yna.co.kr/RSS/sci-tech.xml", "tag": "[韓]"}
+      {"url": "https://asia.nikkei.com/rss/feed/nar", "tag": "[日]"}
     ],
     "TW": [
       {"url": "https://www.ithome.com.tw/rss", "tag": ""},
@@ -36,7 +43,6 @@
       {"url": "https://www.digitimes.com.tw/rss/news.xml", "tag": ""},
       {"url": "https://www.cio.com.tw/feed/", "tag": ""},
       {"url": "https://www.bnext.com.tw/rss", "tag": ""},
-      {"url": "https://www.ctee.com.tw/rss/tech", "tag": ""},
       {"url": "https://money.udn.com/rssfeed/news/1001/5591/1059?ch=money", "tag": ""},
       {"url": "https://www.cna.com.tw/cna2018/api/jsnews.aspx?type=ait", "tag": ""}
     ]
