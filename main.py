@@ -141,8 +141,8 @@ def cluster_and_translate(daily_data, need_trans=False):
                             except: art['display_summary'] = art['raw_summary']
                 else:
                     fixed = apply_custom_terms(raw)
-                    art['translated_title'] = fixed
                     art['display_title'] = art['tag_html'] + highlight_keywords(fixed)
+                    art['translated_title'] = fixed
                     if idx == 0: art['display_summary'] = apply_custom_terms(art['raw_summary'])
 
             first = articles[0]
@@ -176,12 +176,12 @@ def render_column(daily_clusters, title_prefix):
             
             html += f"<div class='story-block {'priority' if group['priority'] else ''}' data-id=\"{safe_id}\" title=\"{safe_sum}\">"
             html += f"<div class='headline-wrapper'><span class='star-btn' onclick='toggleStar(\"{safe_id}\")'>★</span>"
-            html += f"<a class='headline {'analysis-text' if first['is_analysis'] else ''}' href='{first['link']}'>{first['display_title']} <span class='source-tag'>{meta}</span></a></div>"
+            html += f"<a class='headline {'analysis-text' if first['is_analysis'] else ''}' href='{first['link']}' target='_blank'>{first['display_title']} <span class='source-tag'>{meta}</span></a></div>"
             if 'raw_title' in first and first['display_title'].find(first['raw_title']) == -1:
                 html += f"<div class='original-title'>{first['raw_title']}</div>"
             for up in sorted(group['articles'][1:], key=lambda x: x['time'], reverse=True)[:5]:
                 sub_t = up.get('translated_title', up['raw_title'])
-                html += f"<a class='sub-link' href='{up['link']}'>↳ {up['source']}: {sub_t}</a>"
+                html += f"<a class='sub-link' href='{up['link']}' target='_blank'>↳ {up['source']}: {sub_t}</a>"
             html += "</div>"
     return html + "</div>"
 
@@ -199,9 +199,16 @@ def main():
     
     full_html = f"""
     <html><head><meta charset='UTF-8'><title>{SITE_TITLE}</title><style>
-        :root {{ --bg: #fff; --text: #000; --link: #0000ee; --meta: #777; --border: #ddd; --hi: #ffff0033; }}
+        :root {{ 
+            --bg: #fff; --text: #333; --meta: #777; --border: #ddd; --hi: #ffff0033;
+            --link: #1a0dab; /* 經典深藍 */
+            --visited: #609; /* 經典已讀紫 */
+        }}
         @media (prefers-color-scheme: dark) {{
-            :root {{ --bg: #1a1a1a; --text: #e0e0e0; --link: #8ab4f8; --meta: #999; --border: #333; --hi: #ffd70033; }}
+            :root {{ 
+                --bg: #1a1a1a; --text: #ccc; --meta: #999; --border: #333; --hi: #ffd70033;
+                --link: #8ab4f8; --visited: #c58af9;
+            }}
         }}
         body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.2; }}
         .header {{ padding: 10px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; }}
@@ -224,13 +231,33 @@ def main():
         .badge-分析 {{ background: #8e44ad; color: #fff; }}
         .badge-日 {{ background: #c0392b; color: #fff; }}
         .badge-韓 {{ background: #2980b9; color: #fff; }}
-        .kw-highlight {{ background-color: var(--hi); border-radius: 2px; padding: 0 2px; font-weight: 600; }}
+        .kw-highlight {{ background-color: var(--hi); border-radius: 2px; padding: 0 2px; font-weight: 600; color: #000; }}
         .analysis-text {{ color: #8e44ad !important; }}
-        .headline {{ color: var(--link); text-decoration: none; font-size: 15px; font-weight: bold; }}
+        
+        /* 連結樣式優化 */
+        .headline {{ 
+            color: var(--link); 
+            text-decoration: none; 
+            font-size: 15px; 
+            font-weight: bold; 
+        }}
+        .headline:visited {{ color: var(--visited); }}
+        .headline:hover {{ text-decoration: underline; }}
+        
+        .sub-link {{ 
+            display: block; 
+            font-size: 11px; 
+            color: var(--link); 
+            opacity: 0.85; 
+            margin: 3px 0 0 22px; 
+            text-decoration: none; 
+        }}
+        .sub-link:visited {{ color: var(--visited); }}
+        .sub-link:hover {{ text-decoration: underline; opacity: 1; }}
+
         .source-tag {{ font-size: 11px; color: var(--meta); font-weight: normal; }}
         .original-title {{ font-size: 11px; color: var(--meta); margin: 2px 0 4px 22px; }}
-        .sub-link {{ display: block; font-size: 11px; color: var(--text); opacity: 0.7; margin: 3px 0 0 22px; text-decoration: none; }}
-        .star-btn {{ cursor: pointer; color: #ccc; margin-right: 6px; }}
+        .star-btn {{ cursor: pointer; color: #ccc; margin-right: 6px; transition: color 0.2s; }}
         .star-btn.active {{ color: #f1c40f; }}
         body.only-stars .story-block:not(.has-star) {{ display: none; }}
     </style></head><body>
