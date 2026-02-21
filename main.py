@@ -5,7 +5,7 @@ from sklearn.cluster import DBSCAN
 from googletrans import Translator
 import urllib3
 
-# 停用不安全連線警告 (針對部分媒體 SSL 問題)
+# 停用不安全連線警告 (解決部分網站 SSL 抓取問題)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 基礎設定 ---
@@ -67,10 +67,11 @@ def is_similar(a, b):
 def fetch_data(feed_list):
     data_by_date, stats = {}, {}
     now_utc = datetime.datetime.now(pytz.utc)
-    # 放寬到 72 小時確保週末也有資訊
+    # 放寬抓取範圍至 72 小時，確保內容充足
     limit_time = now_utc - datetime.timedelta(hours=72)
     seen_titles = []
     
+    # 解決媒體常見的 PST/EST 時區解析警告
     tz_infos = {
         "PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific"),
         "EST": pytz.timezone("US/Eastern"), "EDT": pytz.timezone("US/Eastern"),
@@ -80,7 +81,7 @@ def fetch_data(feed_list):
     
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
     
-    # 黑名單防呆
+    # 黑名單防呆：自動跳過空關鍵字
     full_blacklist = [kw.lower().strip() for kw in (CONFIG.get('BLACKLIST_GENERAL', []) + CONFIG.get('BLACKLIST_TECH_RELATED', [])) if kw and kw.strip()]
     
     for item in feed_list:
