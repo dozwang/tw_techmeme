@@ -179,11 +179,12 @@ def main():
         :root {{ --bg: #fff; --text: #333; --meta: #777; --border: #ddd; --hi: #ffff0033; --link: #1a0dab; --visited: #609; --accent: #27ae60; }}
         @media (prefers-color-scheme: dark) {{ :root {{ --bg: #1a1a1a; --text: #ccc; --meta: #999; --border: #333; --hi: #ffd70033; --link: #8ab4f8; --visited: #c58af9; }} }}
         body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.2; }}
-        .header {{ padding: 10px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; sticky; top:0; background: var(--bg); z-index: 100; }}
+        .header {{ padding: 10px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 100; }}
         .controls {{ display: flex; gap: 10px; align-items: center; }}
-        .btn {{ cursor: pointer; padding: 4px 12px; border: 1px solid var(--text); font-size: 11px; font-weight: bold; background: var(--bg); border-radius: 4px; }}
-        .btn.active {{ background: #f1c40f; color: #000; }}
+        .btn {{ cursor: pointer; padding: 4px 12px; border: 1px solid var(--text); font-size: 11px; font-weight: bold; background: var(--bg); color: var(--text); border-radius: 4px; }}
+        .btn.active {{ background: #f1c40f; color: #000; border-color: #f1c40f; }}
         #stats-details {{ display: none; padding: 15px 20px; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border); column-count: 2; }}
+        @media (prefers-color-scheme: dark) {{ #stats-details {{ background: #222; }} }}
         .stat-row {{ display: flex; align-items: center; gap: 12px; padding: 3px 0; break-inside: avoid; border-bottom: 1px solid rgba(0,0,0,0.03); }}
         .stat-name {{ font-size: 11px; flex: 1; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
         .stat-bar-container {{ width: 80px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden; }}
