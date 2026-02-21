@@ -4,7 +4,7 @@ on:
   workflow_dispatch:      # 手動執行按鈕
 
 permissions:
-  contents: write         # 重要：賦予寫入權限
+  contents: write         # 重要：賦予 Action 寫入權限以推送檔案
 
 jobs:
   build:
@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests feedparser pytz python-dateutil sentence-transformers scikit-learn googletrans==3.1.0a0 urllib3
+          pip install requests feedparser pytz python-dateutil sentence-transformers scikit-learn googletrans==3.1.0a0 urllib3 beautifulsoup4
 
       - name: Run Scraper
         run: python main.py
@@ -30,6 +30,8 @@ jobs:
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
+          # 將產出的網頁與快取加入暫存區
           git add index.html translation_cache.json
-          git commit -m "Auto-update Techmeme Dashboard" || exit 0
+          # 如果檔案沒有變動，避免 commit 報錯導致流程中斷
+          git commit -m "Auto-update Techmeme Dashboard with Bnext Scraping" || exit 0
           git push
