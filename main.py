@@ -97,6 +97,7 @@ def main():
         </script>
     </body></html>
     """
-    save_cache(TRANS_CACHE)
-    os.makedirs('output', exist_ok=True)
-    with open('output/index.html', 'w', encoding='utf-8') as f: f.write(full_html)
+ save_cache(TRANS_CACHE)
+# 直接產生在根目錄，方便 GitHub Pages 讀取
+with open('index.html', 'w', encoding='utf-8') as f: 
+    f.write(full_html)
