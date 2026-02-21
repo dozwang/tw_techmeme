@@ -1,10 +1,10 @@
 name: Manual Scraper and Auto-Update
 
 on:
-  workflow_dispatch:      # 保持手動執行按鈕
+  workflow_dispatch:      # 手動執行按鈕
 
 permissions:
-  contents: write         # 必須賦予寫入權限，否則無法將檔案推回倉庫
+  contents: write         # 重要：賦予寫入權限
 
 jobs:
   build:
@@ -30,8 +30,6 @@ jobs:
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
-          # 確保 index.html 被產出在根目錄並加入追蹤
           git add index.html translation_cache.json
-          # 如果內容沒變動，commit 會失敗，使用 || exit 0 讓流程繼續
           git commit -m "Auto-update Techmeme Dashboard" || exit 0
           git push
