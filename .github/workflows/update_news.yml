@@ -1,40 +1,37 @@
-name: Update Taiwan Techmeme
+name: Manual Scraper and Auto-Update
 
 on:
-  schedule:
-    - cron: '0 */4 * * *' # 每 4 小時執行一次 (台北時間 0:00, 4:00, 8:00...)
-  workflow_dispatch:      # 允許你在 GitHub 介面手動點擊執行
+  workflow_dispatch:      # 保持手動執行按鈕
 
 permissions:
-  contents: write         # 必備：允許 Actions 推送產生的 HTML 到 gh-pages 分支
+  contents: write         # 必須賦予寫入權限，否則無法將檔案推回倉庫
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          cache: 'pip' # 快取 pip 套件以加速後續執行
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install requests feedparser pytz python-dateutil sentence-transformers scikit-learn googletrans==3.1.0a0 urllib3
 
-      - name: Run News Scraper
+      - name: Run Scraper
         run: python main.py
-        env:
-          PYTHONIOENCODING: utf-8
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./output # 這裡對應 main.py 中生成的 output 資料夾
-          publish_branch: gh-pages
+      - name: Commit and Push update
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          # 確保 index.html 被產出在根目錄並加入追蹤
+          git add index.html translation_cache.json
+          # 如果內容沒變動，commit 會失敗，使用 || exit 0 讓流程繼續
+          git commit -m "Auto-update Techmeme Dashboard" || exit 0
+          git push
