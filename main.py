@@ -2,19 +2,20 @@ import feedparser
 import datetime
 import pytz
 import os
+import difflib
 from dateutil import parser as date_parser
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN
 from googletrans import Translator
 
-# --- 設定與清單 ---
+# --- 設定 ---
 TW_TZ = pytz.timezone('Asia/Taipei')
 translator = Translator()
 
-# IT 新聞排除關鍵字黑名單
-BLACKLIST = [
-    "暗物質", "哈伯望遠鏡", "韋伯望遠鏡", "黑洞", "超新星", "銀河系", "天文", "太空探測",
-    "關稅", "經貿", "外交", "政情", "碳排放", "氣候變遷", "考古", "恐龍", "疫苗"
+BLACKLIST = ["暗物質", "哈伯望遠鏡", "韋伯望遠鏡", "黑洞", "銀河系", "關稅", "經貿", "外交", "考古", "疫苗"]
+WHITELIST = [
+    "AI", "生成式AI", "雲原生", "軟體", "軟體開發", "CLOUD", "CIO", "CISO", 
+    "DEVOPS", "DEVSECOPS", "FINOPS", "平台工程", "DOCKER", "KUBERNETES"
 ]
 
 FEEDS_TW = [
@@ -35,11 +36,15 @@ FEEDS_INTL = [
     "https://9to5google.com/feed/", "https://feeds.macrumors.com/MacRumors-All"
 ]
 
+def is_similar(a, b):
+    return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
+
 def fetch_data(urls):
     data_by_date = {}
     stats = {}
     now_utc = datetime.datetime.now(pytz.utc)
     limit_48h = now_utc - datetime.timedelta(hours=48)
+    seen_titles = []
     
     for url in urls:
         feed = feedparser.parse(url)
@@ -47,24 +52,24 @@ def fetch_data(urls):
         stats[s_name] = 0
         for entry in feed.entries[:12]:
             try:
-                # 排除過濾邏輯
-                title_lower = entry.title.lower()
-                if any(kw in title_lower for kw in BLACKLIST):
-                    continue
+                title = entry.title.strip()
+                if any(kw in title.lower() for kw in BLACKLIST): continue
+                if any(is_similar(title, seen) for seen in seen_titles): continue
                 
                 p_date = date_parser.parse(entry.published)
                 if p_date.tzinfo is None: p_date = pytz.utc.localize(p_date)
                 if p_date < limit_48h: continue
+                
                 p_date_tw = p_date.astimezone(TW_TZ)
                 date_str = p_date_tw.strftime('%Y-%m-%d')
-                
                 author = entry.get('author', entry.get('author_detail', {}).get('name', ''))
                 if not author and 'dc_creator' in entry: author = entry['dc_creator']
                 
                 data_by_date.setdefault(date_str, []).append({
-                    'title': entry.title, 'link': entry.link, 'source': s_name,
+                    'title': title, 'link': entry.link, 'source': s_name,
                     'time': p_date_tw, 'author': author
                 })
+                seen_titles.append(title)
                 stats[s_name] += 1
             except: continue
     return data_by_date, stats
@@ -80,13 +85,19 @@ def cluster_and_translate(daily_data, is_intl=False):
         groups = {}
         for i, cid in enumerate(clusters):
             groups.setdefault(cid, []).append(news_list[i])
+        
+        final_groups = []
         for cid, articles in groups.items():
             articles.sort(key=lambda x: x['time'])
+            first = articles[0]
             if is_intl:
-                try:
-                    articles[0]['trans_title'] = translator.translate(articles[0]['title'], dest='zh-tw').text
-                except: articles[0]['trans_title'] = articles[0]['title']
-        results[d_str] = groups
+                try: first['trans_title'] = translator.translate(first['title'], dest='zh-tw').text
+                except: first['trans_title'] = first['title']
+            is_priority = any(kw.lower() in first['title'].lower() for kw in WHITELIST)
+            final_groups.append({'articles': articles, 'priority': is_priority})
+        
+        final_groups.sort(key=lambda x: (x['priority'], x['articles'][0]['time']), reverse=True)
+        results[d_str] = final_groups
     return results
 
 def render_column(daily_clusters, title_prefix):
@@ -94,34 +105,29 @@ def render_column(daily_clusters, title_prefix):
     sorted_dates = sorted(daily_clusters.keys(), reverse=True)
     for d_str in sorted_dates:
         html += f"<div class='date-header'>{d_str}</div>"
-        sorted_groups = sorted(daily_clusters[d_str].values(), key=lambda x: x[0]['time'], reverse=True)
-        for articles in sorted_groups:
-            articles.sort(key=lambda x: x['time'])
+        for group in daily_clusters[d_str]:
+            articles = group['articles']
             first = articles[0]
-            latest_updates = sorted([a for a in articles[1:]], key=lambda x: x['time'], reverse=True)[:5]
+            latest_updates = sorted(articles[1:], key=lambda x: x['time'], reverse=True)[:5]
             others = [a for a in articles if a not in [first] + latest_updates]
             
             display_title = first.get('trans_title', first['title'])
             safe_id = first['link'].replace('"', '&quot;')
+            meta = f" — {first['source']} {first['time'].strftime('%H:%M')}{' by '+first['author'] if first['author'] else ''}"
+            pri_class = "priority" if group['priority'] else ""
             
-            time_info = first['time'].strftime('%H:%M')
-            author_info = f" by {first['author']}" if first['author'] else ""
-            meta_info = f" — {first['source']} {time_info}{author_info}"
-            
-            html += f"<div class='story-block' data-id=\"{safe_id}\">"
+            html += f"<div class='story-block {pri_class}' data-id=\"{safe_id}\">"
             html += f"<div class='headline-wrapper'>"
             html += f"<span class='star-btn' onclick='toggleStar(\"{safe_id}\")'>★</span>"
-            html += f"<a class='headline' href='{first['link']}'>{display_title} <span class='source-tag'>{meta_info}</span></a>"
+            html += f"<a class='headline' href='{first['link']}'>{display_title} <span class='source-tag'>{meta}</span></a>"
             html += f"</div>"
             if 'trans_title' in first:
                 html += f"<div class='original-title'>{first['title']}</div>"
             for up in latest_updates:
-                up_title = up.get('trans_title', up['title'])
-                u_author = f" by {up['author']}" if up['author'] else ""
-                html += f"<a class='sub-link' href='{up['link']}'>↳ <span class='source-name'>{up['source']} ({up['time'].strftime('%H:%M')}){u_author}</span>: {up_title}</a>"
+                u_m = f"({up['time'].strftime('%H:%M')}{' by '+up['author'] if up['author'] else ''})"
+                html += f"<a class='sub-link' href='{up['link']}'>↳ <span class='source-name'>{up['source']} {u_m}</span>: {up.get('trans_title', up['title'])}</a>"
             if others:
-                other_str = ", ".join([f"{o['source']}" for o in others[:12]])
-                html += f"<div class='other-mentions'>Also: {other_str}</div>"
+                html += f"<div class='other-mentions'>Also: {', '.join([o['source'] for o in others[:8]])}</div>"
             html += "</div>"
     html += "</div>"
     return html
@@ -137,28 +143,31 @@ def main():
     
     full_html = f"""
     <html><head><meta charset='UTF-8'><title>台版 Techmeme</title><style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; margin: 0; line-height: 1.2; }}
-        .header {{ background: #fff; padding: 10px 20px; border-bottom: 2px solid #000; display: flex; justify-content: space-between; align-items: center; }}
+        :root {{ --bg: #ffffff; --text: #000000; --link: #0000ee; --meta: #777777; --border: #f0f0f0; --header-bg: #f0f0f0; --river-bg: #ffffff; }}
+        @media (prefers-color-scheme: dark) {{
+            :root {{ --bg: #1a1a1a; --text: #e0e0e0; --link: #8ab4f8; --meta: #999999; --border: #333333; --header-bg: #2d2d2d; --river-bg: #1a1a1a; }}
+        }}
+        body {{ font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.2; }}
+        .header {{ background: var(--bg); padding: 10px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; }}
         .header h1 {{ margin: 0; font-size: 22px; font-weight: 900; }}
-        .stats-summary {{ background: #f0f0f0; padding: 5px 20px; font-size: 11px; cursor: pointer; border-bottom: 1px solid #ddd; color: #555; }}
-        .stats-details {{ display: none; background: #fff; padding: 15px 20px; border-bottom: 1px solid #ddd; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 5px; }}
-        .stat-item {{ font-size: 11px; }}
-        .wrapper {{ display: flex; width: 100%; margin: 0 auto; gap: 1px; background: #ddd; min-height: 100vh; }}
-        .river {{ flex: 1; background: #fff; padding: 10px 15px; }}
-        .river-title {{ font-size: 18px; font-weight: bold; border-bottom: 1px solid #000; margin-bottom: 10px; padding-bottom: 3px; color: #333; }}
+        .stats-summary {{ background: var(--header-bg); padding: 5px 20px; font-size: 11px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--meta); }}
+        .stats-details {{ display: none; background: var(--bg); padding: 15px 20px; border-bottom: 1px solid var(--border); grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 5px; }}
+        .wrapper {{ display: flex; width: 100%; gap: 1px; background: var(--border); min-height: 100vh; }}
+        .river {{ flex: 1; background: var(--river-bg); padding: 10px 15px; }}
+        .river-title {{ font-size: 18px; font-weight: bold; border-bottom: 1px solid var(--text); margin-bottom: 10px; padding-bottom: 3px; }}
         .date-header {{ background: #444; color: #fff; padding: 2px 8px; font-size: 11px; margin: 15px 0 5px; display: inline-block; font-weight: bold; }}
-        .story-block {{ padding: 6px 0; margin-bottom: 2px; border-bottom: 1px solid #f0f0f0; }}
+        .story-block {{ padding: 6px 0; border-bottom: 1px solid var(--border); }}
+        .story-block.priority {{ border-left: 3px solid #0000ee44; padding-left: 5px; }}
         .headline-wrapper {{ display: flex; align-items: flex-start; }}
-        .star-btn {{ cursor: pointer; color: #ccc; font-size: 14px; margin-right: 6px; user-select: none; margin-top: 1px; transition: color 0.2s; }}
+        .star-btn {{ cursor: pointer; color: #ccc; font-size: 14px; margin-right: 6px; margin-top: 1px; }}
         .star-btn.active {{ color: #f1c40f; }}
-        .headline {{ color: #0000ee; text-decoration: none; font-size: 15px; font-weight: bold; line-height: 1.3; flex: 1; }}
-        .headline:hover {{ text-decoration: underline; }}
-        .original-title {{ font-size: 11px; color: #888; margin: 1px 0 3px 20px; }}
-        .sub-link {{ display: block; font-size: 11px; color: #555; margin-top: 2px; text-decoration: none; padding-left: 20px; }}
-        .source-tag {{ font-size: 11px; color: #777; font-weight: normal; }}
-        .other-mentions {{ font-size: 11px; color: #999; margin-top: 3px; padding-left: 20px; font-style: italic; }}
+        .headline {{ color: var(--link); text-decoration: none; font-size: 15px; font-weight: bold; }}
+        .original-title {{ font-size: 11px; color: var(--meta); margin: 1px 0 3px 20px; }}
+        .sub-link {{ display: block; font-size: 11px; color: var(--text); opacity: 0.8; margin-top: 2px; text-decoration: none; padding-left: 20px; }}
+        .source-tag {{ font-size: 11px; color: var(--meta); font-weight: normal; }}
+        .other-mentions {{ font-size: 11px; color: var(--meta); margin-top: 3px; padding-left: 20px; font-style: italic; }}
     </style></head><body>
-        <div class='header'><h1>台版 Techmeme</h1><div style="text-align: right; font-size: 11px; color: #666;">{now_str} (台北)</div></div>
+        <div class='header'><h1>台版 Techmeme</h1><div style="text-align: right; font-size: 11px; color: var(--meta);">{now_str} (台北)</div></div>
         <div class="stats-summary" onclick="toggleStats()">📊 抓取 {len(all_stats)} 媒體共 {sum(all_stats.values())} 報導 <span id="toggle-txt">▼</span></div>
         <div id="stats-details" class="stats-details">{stats_html}</div>
         <div class='wrapper'>
