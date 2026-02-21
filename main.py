@@ -3,6 +3,10 @@ from dateutil import parser as date_parser
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN
 from googletrans import Translator
+import urllib3
+
+# 停用不安全連線警告 (針對 verify=False)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 基礎設定 ---
 TW_TZ = pytz.timezone('Asia/Taipei')
@@ -32,8 +36,9 @@ CONFIG = load_config()
 TRANS_CACHE = load_cache()
 
 def clean_html(raw_html):
+    if not raw_html: return ""
     cleanr = re.compile('<.*?>')
-    cleantext = re.sub(cleanr, '', raw_html)
+    cleantext = re.sub(cleanr, '', str(raw_html))
     return cleantext[:160].strip() + "..."
 
 def apply_custom_terms(text):
@@ -62,33 +67,50 @@ def is_similar(a, b):
 def fetch_data(feed_list):
     data_by_date, stats = {}, {}
     now_utc = datetime.datetime.now(pytz.utc)
-    limit_48h = now_utc - datetime.timedelta(hours=48)
+    # 週末放寬至 72 小時確保資訊量
+    limit_time = now_utc - datetime.timedelta(hours=72)
     seen_titles = []
+    
+    # 解決 PST/EST 等時區縮寫辨識問題
+    tz_infos = {
+        "PST": pytz.timezone("US/Pacific"),
+        "PDT": pytz.timezone("US/Pacific"),
+        "EST": pytz.timezone("US/Eastern"),
+        "EDT": pytz.timezone("US/Eastern"),
+        "JST": pytz.timezone("Asia/Tokyo"),
+        "KST": pytz.timezone("Asia/Seoul"),
+        "GMT": pytz.UTC
+    }
+    
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
     
-    full_blacklist = CONFIG.get('BLACKLIST_GENERAL', []) + CONFIG.get('BLACKLIST_TECH_RELATED', [])
+    # 黑名單防呆處理
+    full_blacklist = [kw.lower() for kw in (CONFIG.get('BLACKLIST_GENERAL', []) + CONFIG.get('BLACKLIST_TECH_RELATED', [])) if kw and kw.strip()]
     
     for item in feed_list:
         url, tag = item['url'], item['tag']
         try:
-            resp = requests.get(url, headers=headers, timeout=15)
+            resp = requests.get(url, headers=headers, timeout=20, verify=False)
             resp.encoding = resp.apparent_encoding
             feed = feedparser.parse(resp.content)
             s_name = feed.feed.title if 'title' in feed.feed else url.split('/')[2]
             if s_name not in stats: stats[s_name] = 0
             
-            for entry in feed.entries[:15]:
+            for entry in feed.entries[:20]:
                 title = entry.title.strip()
-                if any(kw.lower() in title.lower() for kw in full_blacklist): continue
+                
+                if any(kw in title.lower() for kw in full_blacklist): continue
                 if any(is_similar(title, seen) for seen in seen_titles): continue
                 
                 raw_date = entry.get('published', entry.get('pubDate', entry.get('updated', None)))
                 if not raw_date: continue
                 try:
-                    p_date = date_parser.parse(raw_date)
+                    p_date = date_parser.parse(raw_date, tzinfos=tz_infos)
                     if p_date.tzinfo is None: p_date = pytz.utc.localize(p_date)
+                    else: p_date = p_date.astimezone(pytz.utc)
                 except: continue
-                if p_date < limit_48h: continue
+                
+                if p_date < limit_time: continue
                 
                 p_date_tw = p_date.astimezone(TW_TZ)
                 date_str = p_date_tw.strftime('%Y-%m-%d')
@@ -129,7 +151,6 @@ def cluster_and_translate(daily_data, need_trans=False):
                         except: translated = raw
                     art['translated_title'] = translated
                     art['display_title'] = art['tag_html'] + highlight_keywords(translated)
-                    
                     if idx == 0:
                         sum_key = raw[:40] + "_sum"
                         if sum_key in TRANS_CACHE: art['display_summary'] = TRANS_CACHE[sum_key]
@@ -141,10 +162,9 @@ def cluster_and_translate(daily_data, need_trans=False):
                             except: art['display_summary'] = art['raw_summary']
                 else:
                     fixed = apply_custom_terms(raw)
-                    art['display_title'] = art['tag_html'] + highlight_keywords(fixed)
                     art['translated_title'] = fixed
+                    art['display_title'] = art['tag_html'] + highlight_keywords(fixed)
                     if idx == 0: art['display_summary'] = apply_custom_terms(art['raw_summary'])
-
             first = articles[0]
             is_priority = any(kw.lower() in first['raw_title'].lower() for kw in CONFIG['WHITELIST']) or first['is_analysis']
             final_groups.append({'articles': articles, 'priority': is_priority})
@@ -156,7 +176,6 @@ def render_column(daily_clusters, title_prefix):
     all_arts = []
     for d in daily_clusters:
         for g in daily_clusters[d]: all_arts.extend(g['articles'])
-    
     if all_arts:
         sorted_t = sorted([a['time'] for a in all_arts])
         t_range = f"{sorted_t[0].strftime('%m/%d %H:%M')} ~ {sorted_t[-1].strftime('%m/%d %H:%M')}"
@@ -173,7 +192,6 @@ def render_column(daily_clusters, title_prefix):
             safe_id = first['link'].replace('"', '&quot;')
             safe_sum = first.get('display_summary', "").replace('"', '&quot;')
             meta = f" — {first['source']} {first['time'].strftime('%H:%M')}"
-            
             html += f"<div class='story-block {'priority' if group['priority'] else ''}' data-id=\"{safe_id}\" title=\"{safe_sum}\">"
             html += f"<div class='headline-wrapper'><span class='star-btn' onclick='toggleStar(\"{safe_id}\")'>★</span>"
             html += f"<a class='headline {'analysis-text' if first['is_analysis'] else ''}' href='{first['link']}' target='_blank'>{first['display_title']} <span class='source-tag'>{meta}</span></a></div>"
@@ -192,24 +210,13 @@ def main():
     intl_cls = cluster_and_translate(intl_raw, need_trans=True)
     jk_cls = cluster_and_translate(jk_raw, need_trans=True)
     tw_cls = cluster_and_translate(tw_raw, need_trans=False)
-    
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
     all_st = {**intl_st, **jk_st, **tw_st}
     stats_html = "".join([f"<div class='stat-item'>{k}: <span>{v}</span></div>" for k, v in sorted(all_st.items())])
-    
     full_html = f"""
     <html><head><meta charset='UTF-8'><title>{SITE_TITLE}</title><style>
-        :root {{ 
-            --bg: #fff; --text: #333; --meta: #777; --border: #ddd; --hi: #ffff0033;
-            --link: #1a0dab; /* 經典深藍 */
-            --visited: #609; /* 經典已讀紫 */
-        }}
-        @media (prefers-color-scheme: dark) {{
-            :root {{ 
-                --bg: #1a1a1a; --text: #ccc; --meta: #999; --border: #333; --hi: #ffd70033;
-                --link: #8ab4f8; --visited: #c58af9;
-            }}
-        }}
+        :root {{ --bg: #fff; --text: #333; --meta: #777; --border: #ddd; --hi: #ffff0033; --link: #1a0dab; --visited: #609; }}
+        @media (prefers-color-scheme: dark) {{ :root {{ --bg: #1a1a1a; --text: #ccc; --meta: #999; --border: #333; --hi: #ffd70033; --link: #8ab4f8; --visited: #c58af9; }} }}
         body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.2; }}
         .header {{ padding: 10px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; }}
         .controls {{ display: flex; gap: 10px; align-items: center; }}
@@ -225,49 +232,23 @@ def main():
         .day-count {{ float: right; opacity: 0.7; font-weight: normal; }}
         .story-block {{ padding: 8px 0; border-bottom: 1px solid var(--border); transition: background 0.2s; cursor: help; }}
         .story-block:hover {{ background: rgba(0,0,0,0.02); }}
-        @media (prefers-color-scheme: dark) {{ .story-block:hover {{ background: rgba(255,255,255,0.03); }} }}
-        .story-block.priority {{ border-left: 3px solid #0000ee44; padding-left: 8px; }}
         .badge {{ font-size: 10px; padding: 1px 4px; border-radius: 3px; font-weight: bold; }}
         .badge-分析 {{ background: #8e44ad; color: #fff; }}
         .badge-日 {{ background: #c0392b; color: #fff; }}
         .badge-韓 {{ background: #2980b9; color: #fff; }}
         .kw-highlight {{ background-color: var(--hi); border-radius: 2px; padding: 0 2px; font-weight: 600; color: #000; }}
         .analysis-text {{ color: #8e44ad !important; }}
-        
-        /* 連結樣式優化 */
-        .headline {{ 
-            color: var(--link); 
-            text-decoration: none; 
-            font-size: 15px; 
-            font-weight: bold; 
-        }}
+        .headline {{ color: var(--link); text-decoration: none; font-size: 15px; font-weight: bold; }}
         .headline:visited {{ color: var(--visited); }}
-        .headline:hover {{ text-decoration: underline; }}
-        
-        .sub-link {{ 
-            display: block; 
-            font-size: 11px; 
-            color: var(--link); 
-            opacity: 0.85; 
-            margin: 3px 0 0 22px; 
-            text-decoration: none; 
-        }}
+        .sub-link {{ display: block; font-size: 11px; color: var(--link); opacity: 0.85; margin: 3px 0 0 22px; text-decoration: none; }}
         .sub-link:visited {{ color: var(--visited); }}
-        .sub-link:hover {{ text-decoration: underline; opacity: 1; }}
-
         .source-tag {{ font-size: 11px; color: var(--meta); font-weight: normal; }}
         .original-title {{ font-size: 11px; color: var(--meta); margin: 2px 0 4px 22px; }}
         .star-btn {{ cursor: pointer; color: #ccc; margin-right: 6px; transition: color 0.2s; }}
         .star-btn.active {{ color: #f1c40f; }}
         body.only-stars .story-block:not(.has-star) {{ display: none; }}
     </style></head><body>
-        <div class='header'>
-            <h1>{SITE_TITLE}</h1>
-            <div class='controls'>
-                <div id='star-filter' class='filter-btn' onclick='toggleStarFilter()'>僅顯示星號 ★</div>
-                <div style="font-size:11px;">{now_str}</div>
-            </div>
-        </div>
+        <div class='header'><h1>{SITE_TITLE}</h1><div class='controls'><div id='star-filter' class='filter-btn' onclick='toggleStarFilter()'>僅顯示星號 ★</div><div style="font-size:11px;">{now_str}</div></div></div>
         <div class="stats-summary" onclick="toggleStats()">📊 來源統計 <span id="toggle-txt">▼</span></div>
         <div id="stats-details" class="stats-details">{stats_html}</div>
         <div class='wrapper'>
@@ -276,27 +257,18 @@ def main():
             {render_column(tw_cls, "Taiwan IT & Biz")}
         </div>
         <script>
-            function toggleStats() {{
-                const p = document.getElementById('stats-details');
-                p.style.display = p.style.display === 'grid' ? 'none' : 'grid';
-            }}
-            function toggleStarFilter() {{
-                const btn = document.getElementById('star-filter');
-                document.body.classList.toggle('only-stars');
-                btn.classList.toggle('active');
-            }}
+            function toggleStats() {{ const p = document.getElementById('stats-details'); p.style.display = p.style.display === 'grid' ? 'none' : 'grid'; }}
+            function toggleStarFilter() {{ document.getElementById('star-filter').classList.toggle('active'); document.body.classList.toggle('only-stars'); }}
             function toggleStar(link) {{
                 let b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]');
-                if (b.includes(link)) b = b.filter(i => i !== link);
-                else b.push(link);
+                b.includes(link) ? b = b.filter(i => i !== link) : b.push(link);
                 localStorage.setItem('tech_bookmarks', JSON.stringify(b));
                 updateStarUI();
             }}
             function updateStarUI() {{
                 const b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]');
                 document.querySelectorAll('.story-block').forEach(el => {{
-                    const id = el.getAttribute('data-id');
-                    const isStarred = b.includes(id);
+                    const isStarred = b.includes(el.getAttribute('data-id'));
                     el.querySelector('.star-btn').classList.toggle('active', isStarred);
                     el.classList.toggle('has-star', isStarred);
                 }});
