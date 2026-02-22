@@ -11,7 +11,6 @@
       {"url": "https://feeds.arstechnica.com/arstechnica/index/", "tag": ""},
       {"url": "https://9to5google.com/feed/", "tag": ""},
       {"url": "https://feeds.macrumors.com/MacRumors-All", "tag": ""},
-      {"url": "https://asia.nikkei.com/rss/feed/nar", "tag": ""},
       {"url": "https://www.datacenterknowledge.com/rss.xml", "tag": ""},
       {"url": "https://www.informationweek.com/rss.xml", "tag": ""},
       {"url": "https://www.techtarget.com/rss/news.xml", "tag": ""},
@@ -27,6 +26,7 @@
       {"url": "https://xtech.nikkei.com/rss/index.rdf", "tag": ""},
       {"url": "https://japan.zdnet.com/rss/news/index.rdf", "tag": "[日]"},
       {"url": "https://www.sbbit.jp/rss/Special.rss", "tag": ""},
+      {"url": "https://asia.nikkei.com/rss/feed/nar", "tag": ""},
       {"url": "https://www.sbbit.jp/rss/HotTopics.rss", "tag": ""}
     ],
     "TW": [
