@@ -190,20 +190,21 @@ def main():
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
 
     # --- 豆子特別調教：首頁與頑固來源 ---
-    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['h2 a', 'h3 a', 'a[class*="title"]'], '')
+    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['h2 a', 'h3 a', 'a[class*="title"]', '.n-card__title-link'], '')
     if nikkei_web: intl_raw.setdefault(today_str, []).extend(nikkei_web); intl_st['Nikkei Asia'] = len(nikkei_web)
 
     cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', 'article h3 a'], '[分析]')
     if cio_web: tw_raw.setdefault(today_str, []).extend(cio_web); tw_st['CIO Taiwan'] = len(cio_web)
 
-    # 數位時代首頁抓取
+    # 數位時代首頁抓取 (改抓 bnext.com.tw 首頁結構)
     bnext_web_all = fetch_html_fallback('數位時代', 'https://www.bnext.com.tw/', ['div.item_box a', 'a.item_title', '.article_title'], '[數位]')
+    # 增加去重比對：如果標題已經在 RSS 中出現過則跳過
     bnext_web = [a for a in bnext_web_all if not any(is_similar(a['raw_title'], s) for s in all_seen)]
     if bnext_web: tw_raw.setdefault(today_str, []).extend(bnext_web); tw_st['數位時代'] = len(bnext_web)
 
-    zdj_web = fetch_html_fallback('ZDNet Japan', 'https://japan.zdnet.com', ['section.content-list h3 a', 'h3 a'], '[日]')
+    zdj_web = fetch_html_fallback('ZDNet Japan', 'https://japan.zdnet.com', ['section.content-list h3 a', 'h3 a', '.content-list__title a'], '[日]')
     if zdj_web: jk_raw.setdefault(today_str, []).extend(zdj_web); jk_st['ZDNet Japan'] = len(zdj_web)
-
+    
     # 產出
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
@@ -230,6 +231,9 @@ def main():
         .river {{ background: var(--bg); padding: 10px 15px; }}
         .river-title {{ font-size: 17px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 5px; }}
         .headline {{ color: var(--link); text-decoration: none; font-size: 14.5px; font-weight: bold; }}
+        .headline:visited {{ color: var(--visited); }}
+        .star-btn {{ cursor: pointer; color: #ccc; margin-right: 6px; font-size: 16px; }}
+        .star-btn.active {{ color: #f1c40f; }}
         .btn {{ cursor: pointer; padding: 4px 12px; border: 1px solid var(--text); font-size: 11px; font-weight: bold; background: var(--bg); color: var(--text); border-radius: 4px; }}
         body.only-stars .story-block:not(.has-star) {{ display: none; }}
     </style></head><body>
