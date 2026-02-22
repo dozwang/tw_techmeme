@@ -4,8 +4,8 @@
     "選舉", "政治", "社會新聞", "RFK", "殺蟲劑", "建築"
   ],
   "BLACKLIST_TECH_RELATED": [
-    "暗物質", "哈伯望遠鏡", "韋伯望遠鏡", "黑洞", "銀河系", "天文", "NASA", "量子力學", 
-    "元宇宙", "NFT", "閱讀器", "三星手機", "RAZR", "XBOX"
+    "暗物質", "哈伯望遠鏡", "韋伯望遠鏡", "黑洞", "銀河系", "天文", "量子力學", 
+    "元宇宙", "NFT", "閱讀器", "三星手機", "RAZR", "XBOX", "NASA"
   ],
   "WHITELIST": [
     "AI", "Copilot", "SaaS", "生成式AI", "雲原生", "軟體開發", "CIO", "CISO", 
@@ -15,18 +15,11 @@
     "コパイロット": "Copilot",
     "クラウド": "Cloud",
     "生成 AI": "生成式 AI",
-    "ジェネレーティブ AI": "Generative AI",
-    "ファウンドリ": "Foundry",
-    "チップレット": "Chiplet",
-    "デジタルトランスフォーメーション": "DX",
-    "삼성전자": "Samsung",
-    "하이닉스": "SK Hynix",
-    "네이버": "NAVER",
-    "카카오": "Kakao",
-    "코파일럿": "Copilot",
-    "클라우드": "Cloud"
+    "三星電子": "Samsung",
+    "데이터": "資料",
+    "소프트웨어": "軟體"
   },
- "FEEDS": {
+  "FEEDS": {
     "INTL": [
       {"url": "https://stratechery.com/feed/", "tag": "[分析]"},
       {"url": "https://www.theregister.com/headlines.atom", "tag": "[分析]"},
@@ -55,6 +48,5 @@
       {"url": "https://www.cio.com.tw/feed/", "tag": "[分析]"},
       {"url": "https://meet.bnext.com.tw/rss/articles", "tag": "[數位]"}
     ]
-  }
   }
 }
