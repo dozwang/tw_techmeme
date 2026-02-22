@@ -58,49 +58,8 @@ def highlight_keywords(text):
 
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
 
-def fetch_html_fallback(name, url, selectors, tag_name):
-    """終極偽裝抓取：模擬 Google 來源與多樣化標頭"""
-    uas = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-    ]
-    headers = {
-        'User-Agent': random.choice(uas),
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'ja-JP,ja;q=0.9,zh-TW;q=0.8,zh;q=0.7,en-US;q=0.6,en;q=0.5',
-        'Referer': 'https://www.google.com/',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1'
-    }
-    articles = []
-    try:
-        time.sleep(random.uniform(3, 6)) # 延長等待避免頻率過高
-        session = requests.Session()
-        resp = session.get(url, headers=headers, timeout=30, verify=False)
-        if resp.status_code != 200:
-            print(f"[診斷] {name} 抓取失敗: HTTP {resp.status_code}", flush=True)
-            return []
-        
-        resp.encoding = 'utf-8'
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        items = []
-        for sel in selectors:
-            items = soup.select(sel)
-            if items: break
-            
-        for item in items[:15]:
-            title = item.get_text().strip()
-            link = item.get('href', '')
-            if not title or not link or len(title) < 5: continue
-            if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
-            articles.append({'raw_title': title, 'link': link, 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_name, 'is_analysis': "[分析]" in tag_name})
-    except Exception as e:
-        print(f"[錯誤] {name} 異常: {e}", flush=True)
-    return articles
-
 def fetch_data(feed_list):
+    """通用 RSS 抓取"""
     data_by_date, stats, seen = {}, {}, []
     now_utc = datetime.datetime.now(pytz.utc)
     limit_time = now_utc - datetime.timedelta(hours=72)
@@ -108,7 +67,7 @@ def fetch_data(feed_list):
     for item in feed_list:
         url, tag = item['url'], item['tag']
         try:
-            resp = requests.get(url, headers=headers, timeout=20, verify=False)
+            resp = requests.get(url, headers=headers, timeout=25, verify=False)
             feed = feedparser.parse(resp.content)
             s_name = feed.feed.title if 'title' in feed.feed else url.split('/')[2]
             stats[s_name] = 0
@@ -171,29 +130,26 @@ def render_column(daily_clusters, title_prefix):
     return html + "</div>"
 
 def main():
-    print(">>> [診斷] 開始執行抓取流程...", flush=True)
-    intl_raw, intl_st, s1 = fetch_data(CONFIG['FEEDS']['INTL'])
-    jk_raw, jk_st, s2 = fetch_data(CONFIG['FEEDS']['JK'])
-    tw_raw, tw_st, s3 = fetch_data(CONFIG['FEEDS']['TW'])
-    all_seen = s1 + s2 + s3
-    today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
-
-    # --- 豆子特別調教：攻堅 0 產出來源 ---
-    for name, url, sels, tag in [
-        ('Nikkei Asia', 'https://asia.nikkei.com/Business', ['h3 a', 'a[class*="title"]'], ''),
-        ('CIO Taiwan', 'https://www.cio.com.tw/category/it-strategy/', ['h3.entry-title a', 'article h3 a'], '[分析]'),
-        ('數位時代', 'https://www.bnext.com.tw/articles', ['a.item_title', 'div.item_box a'], '[數位]'),
-        ('ZDNet Japan', 'https://japan.zdnet.com', ['section.content-list h3 a', 'h3 a'], '[日]'),
-        ('Impress IT', 'https://it.impress.co.jp', ['div.article p.title a', 'p.title a'], '[日]')
-    ]:
-        web = fetch_html_fallback(name, url, sels, tag)
-        clean_web = [a for a in web if not any(is_similar(a['raw_title'], s) for s in all_seen)]
-        if clean_web:
-            target = intl_raw if name=='Nikkei Asia' else (tw_raw if name in ['CIO Taiwan', '數位時代'] else jk_raw)
-            target.setdefault(today_str, []).extend(clean_web)
-            if name == 'Nikkei Asia': intl_st[name] = len(clean_web)
-            elif name in ['CIO Taiwan', '數位時代']: tw_st[name] = len(clean_web)
-            else: jk_st[name] = len(clean_web)
+    # --- 豆子特別調教：將 0 產出網站全部轉為 RSS 模式 ---
+    SUPPLEMENT_FEEDS = {
+        "INTL": [
+            {"url": "https://asia.nikkei.com/rss/feed/nar", "tag": ""},
+            {"url": "https://asia.nikkei.com/rss/feed/business", "tag": "[Biz]"}
+        ],
+        "TW": [
+            {"url": "https://www.bnext.com.tw/rss", "tag": "[數位]"},
+            {"url": "https://www.cio.com.tw/feed/", "tag": "[分析]"}
+        ],
+        "JK": [
+            {"url": "https://japan.zdnet.com/rss/index.rdf", "tag": "[日]"},
+            {"url": "https://it.impress.co.jp/rss/index.rdf", "tag": "[日]"}
+        ]
+    }
+    
+    # 執行主體 RSS 抓取
+    intl_raw, intl_st, s1 = fetch_data(CONFIG['FEEDS']['INTL'] + SUPPLEMENT_FEEDS['INTL'])
+    jk_raw, jk_st, s2 = fetch_data(CONFIG['FEEDS']['JK'] + SUPPLEMENT_FEEDS['JK'])
+    tw_raw, tw_st, s3 = fetch_data(CONFIG['FEEDS']['TW'] + SUPPLEMENT_FEEDS['TW'])
 
     print(">>> [診斷] 開始聚類與翻譯...", flush=True)
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
@@ -228,7 +184,7 @@ def main():
         <div class='header'><h1>{SITE_TITLE}</h1><div class='controls'>
             <div class='btn' onclick='toggleStats()'>📊 來源統計</div>
             <div class='btn' onclick='toggleStarFilter()'>★ 僅看精選</div>
-            <div style="font-size:11px; margin-left:15px; color:var(--meta); display:inline-block;">{now_str}</div>
+            <div style="font-size:11px; margin-left:15px; color:var(--meta); display:inline-block;">最後更新: {now_str}</div>
         </div></div>
         <div id='stats-panel'>{"".join(stats_items)}</div>
         <div class='wrapper'>{render_column(intl_cls, "Global & Strategy")}{render_column(jk_cls, "Japan/Korea Tech")}{render_column(tw_cls, "Taiwan IT & Biz")}</div>
