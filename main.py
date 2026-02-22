@@ -53,19 +53,26 @@ def translate_text(text):
 def highlight_keywords(text):
     for kw in CONFIG.get('WHITELIST', []):
         pattern = re.compile(re.escape(kw), re.IGNORECASE)
-        text = pattern.sub(f'<span class="kw-highlight" style="background:rgba(255,255,0,0.3)">\\g<0></span>', text)
+        text = pattern.sub(f'<span class="kw-highlight">\\g<0></span>', text)
     return text
 
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
 
 def fetch_html_fallback(name, url, selectors, tag_name):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36', 'Referer': 'https://www.google.com/'}
+    """強化手機版偽裝抓取"""
+    # 使用 iPhone User-Agent 繞過部分 WAF 封鎖
+    mobile_headers = {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Referer': 'https://www.google.com/'
+    }
     articles = []
     try:
-        time.sleep(random.uniform(1, 2))
-        resp = requests.get(url, headers=headers, timeout=25, verify=False)
+        time.sleep(random.uniform(2, 4))
+        resp = requests.get(url, headers=mobile_headers, timeout=25, verify=False)
         if resp.status_code != 200:
-            print(f"[診斷] {name} 請求失敗: {resp.status_code}", flush=True)
+            print(f"[診斷] {name} 抓取失敗: HTTP {resp.status_code}", flush=True)
             return []
         resp.encoding = 'utf-8'
         soup = BeautifulSoup(resp.text, 'html.parser')
@@ -79,14 +86,15 @@ def fetch_html_fallback(name, url, selectors, tag_name):
             if not title or not link or len(title) < 5: continue
             if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
             articles.append({'raw_title': title, 'link': link, 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_name, 'is_analysis': "[分析]" in tag_name})
-    except Exception as e: print(f"[錯誤] {name} HTML 抓取異常: {e}", flush=True)
+    except Exception as e:
+        print(f"[錯誤] {name} 異常: {e}", flush=True)
     return articles
 
 def fetch_data(feed_list):
     data_by_date, stats, seen = {}, {}, []
     now_utc = datetime.datetime.now(pytz.utc)
     limit_time = now_utc - datetime.timedelta(hours=72)
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'}
     for item in feed_list:
         url, tag = item['url'], item['tag']
         try:
@@ -160,40 +168,50 @@ def main():
     all_seen = s1 + s2 + s3
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
 
-    # HTML 備援
+    # 針對性強化抓取
     for name, url, sels, tag in [
-        ('Nikkei Asia', 'https://asia.nikkei.com', ['h3 a', 'a[class*="title"]'], ''),
-        ('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a'], '[分析]'),
-        ('數位時代', 'https://www.bnext.com.tw/articles', ['a.item_title', 'div.item_box a'], '[數位]')
+        ('Nikkei Asia', 'https://asia.nikkei.com/Business', ['h3 a', 'a[class*="title"]'], ''),
+        ('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', 'article h3 a'], '[分析]'),
+        ('數位時代', 'https://www.bnext.com.tw/articles', ['a.item_title', 'div.item_box a'], '[數位]'),
+        ('ZDNet Japan', 'https://japan.zdnet.com', ['section.content-list h3 a', 'h3 a'], '[日]'),
+        ('Impress IT', 'https://it.impress.co.jp', ['div.article p.title a', 'p.title a'], '[日]')
     ]:
         web = fetch_html_fallback(name, url, sels, tag)
         clean_web = [a for a in web if not any(is_similar(a['raw_title'], s) for s in all_seen)]
         if clean_web:
-            target = intl_raw if name=='Nikkei Asia' else tw_raw
+            target = intl_raw if name=='Nikkei Asia' else (tw_raw if name in ['CIO Taiwan', '數位時代'] else jk_raw)
             target.setdefault(today_str, []).extend(clean_web)
-            if name == '數位時代': tw_st['數位時代'] = len(clean_web)
+            all_stats = {**intl_st, **jk_st, **tw_st}
+            if name in all_stats: all_stats[name] = len(clean_web)
+            else: # 手動補丁統計數據
+                if name == 'Nikkei Asia': intl_st[name] = len(clean_web)
+                elif name in ['CIO Taiwan', '數位時代']: tw_st[name] = len(clean_web)
+                else: jk_st[name] = len(clean_web)
 
     print(">>> [診斷] 開始聚類與翻譯...", flush=True)
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
     
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
-    all_stats = {**intl_st, **jk_st, **tw_st}
-    stats_html = " | ".join([f"<span>{k}: {v}</span>" for k, v in sorted(all_stats.items(), key=lambda x: x[1], reverse=True)])
+    final_stats = {**intl_st, **jk_st, **tw_st}
+    
+    # 建立統計表格 HTML
+    stats_items = [f"<div class='stat-row'><span>{'●' if v>0 else '○'} {k}</span><span style='font-weight:bold; color:{'#27ae60' if v>0 else '#e74c3c'}'>{v}</span></div>" for k, v in sorted(final_stats.items(), key=lambda x: x[1], reverse=True)]
 
     full_html = f"""
     <html><head><meta charset='UTF-8'><title>{SITE_TITLE}</title><style>
-        :root {{ --bg: #fff; --text: #333; --meta: #777; --border: #ddd; --link: #1a0dab; }}
+        :root {{ --bg: #fff; --text: #333; --meta: #777; --border: #ddd; --hi: #ffff0033; --link: #1a0dab; }}
         @media (prefers-color-scheme: dark) {{ :root {{ --bg: #1a1a1a; --text: #ccc; --meta: #999; --border: #333; --link: #8ab4f8; }} }}
         body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.3; }}
         .header {{ padding: 10px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 100; }}
-        .stats-bar {{ background: #f8f9fa; color: #444; font-size: 11px; padding: 5px 20px; border-bottom: 1px solid var(--border); overflow-x: auto; white-space: nowrap; }}
-        @media (prefers-color-scheme: dark) {{ .stats-bar {{ background: #2a2a2a; color: #bbb; }} }}
+        #stats-panel {{ display: none; padding: 15px 20px; background: rgba(0,0,0,0.03); border-bottom: 1px solid var(--border); column-count: 2; }}
+        .stat-row {{ display: flex; justify-content: space-between; font-size: 11px; font-family: monospace; max-width: 300px; padding: 2px 0; }}
         .wrapper {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); }}
         .river {{ background: var(--bg); padding: 10px; }}
         .river-title {{ font-size: 17px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 10px; }}
         .date-header {{ background: #444; color: #fff; padding: 2px 8px; font-size: 11px; margin: 15px 0 5px; }}
         .story-block {{ padding: 8px 0; border-bottom: 1px solid var(--border); }}
         .story-block.has-star {{ background: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; padding-left: 5px; }}
+        .kw-highlight {{ background: var(--hi); border-radius: 2px; padding: 0 2px; font-weight: bold; color: #d35400; }}
         .headline {{ color: var(--link); text-decoration: none; font-size: 14.5px; font-weight: bold; }}
         .star-btn {{ cursor: pointer; color: #ccc; margin-right: 8px; font-size: 18px; }}
         .star-btn.active {{ color: #f1c40f !important; }}
@@ -202,10 +220,16 @@ def main():
         .btn {{ cursor: pointer; padding: 4px 12px; border: 1px solid var(--text); font-size: 11px; font-weight: bold; border-radius: 4px; background: var(--bg); color: var(--text); }}
         body.only-stars .story-block:not(.has-star) {{ display: none; }}
     </style></head><body>
-        <div class='header'><h1>{SITE_TITLE}</h1><div class='controls'><div class='btn' onclick='toggleStarFilter()'>★ 僅看精選</div><div style="font-size:11px; margin-left:15px;">最後更新: {now_str}</div></div></div>
-        <div class='stats-bar'>{stats_html}</div>
+        <div class='header'><h1>{SITE_TITLE}</h1><div class='controls'>
+            <div class='btn' onclick='toggleStats()'>📊 來源統計</div>
+            <div class='btn' onclick='toggleStarFilter()'>★ 僅看精選</div>
+            <div style="font-size:11px; margin-left:15px; color:var(--meta); display:inline-block;">{now_str}</div>
+        </div></div>
+        <div id='stats-panel'>{"".join(stats_items)}</div>
         <div class='wrapper'>{render_column(intl_cls, "Global & Strategy")}{render_column(jk_cls, "Japan/Korea Tech")}{render_column(tw_cls, "Taiwan IT & Biz")}</div>
         <script>
+            function toggleStats() {{ const p = document.getElementById('stats-panel'); p.style.display = (p.style.display === 'block') ? 'none' : 'block'; }}
+            function toggleStarFilter() {{ document.body.classList.toggle('only-stars'); }}
             function toggleStar(hash) {{
                 const el = document.getElementById('sb-' + hash);
                 const btn = el.querySelector('.star-btn');
@@ -220,7 +244,6 @@ def main():
                 }}
                 localStorage.setItem('tech_stars', JSON.stringify(stars));
             }}
-            function toggleStarFilter() {{ document.body.classList.toggle('only-stars'); }}
             function init() {{
                 const stars = JSON.parse(localStorage.getItem('tech_stars') || '[]');
                 document.querySelectorAll('.story-block').forEach(el => {{
@@ -238,9 +261,7 @@ def main():
     print(">>> [成功] index.html 已產出！", flush=True)
 
 if __name__ == "__main__":
-    try:
-        main()
+    try: main()
     except Exception as e:
         print(f">>> [錯誤] 程式崩潰: {e}", flush=True)
-        import traceback
-        traceback.print_exc()
+        import traceback; traceback.print_exc()
