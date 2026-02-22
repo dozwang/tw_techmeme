@@ -26,9 +26,10 @@
     "코파일럿": "Copilot",
     "클라우드": "Cloud"
   },
-  "FEEDS": {
+ "FEEDS": {
     "INTL": [
       {"url": "https://stratechery.com/feed/", "tag": "[分析]"},
+      {"url": "https://www.theregister.com/headlines.atom", "tag": "[分析]"},
       {"url": "https://siliconangle.com/feed/", "tag": ""},
       {"url": "https://techcrunch.com/feed/", "tag": ""},
       {"url": "https://www.theverge.com/rss/partner/techmeme-full-article/rss.xml", "tag": ""},
@@ -42,6 +43,7 @@
     "JK": [
       {"url": "http://rss.etnews.com/03.xml", "tag": "[韓]"},
       {"url": "https://xtech.nikkei.com/rss/index.rdf", "tag": "[日]"},
+      {"url": "https://japan.zdnet.com/rss/news/index.rdf", "tag": "[日]"},
       {"url": "https://www.sbbit.jp/rss/Special.rss", "tag": "[日]"},
       {"url": "https://www.sbbit.jp/rss/HotTopics.rss", "tag": "[日]"},
       {"url": "https://it.impress.co.jp/rss/all/index.rdf", "tag": "[日]"}
@@ -53,5 +55,6 @@
       {"url": "https://www.cio.com.tw/feed/", "tag": "[分析]"},
       {"url": "https://meet.bnext.com.tw/rss/articles", "tag": "[數位]"}
     ]
+  }
   }
 }
