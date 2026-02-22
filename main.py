@@ -14,7 +14,6 @@ TW_TZ = pytz.timezone('Asia/Taipei')
 TZ_INFOS = {"PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific"), "EST": pytz.timezone("US/Eastern"), "EDT": pytz.timezone("US/Eastern"), "JST": pytz.timezone("Asia/Tokyo"), "KST": pytz.timezone("Asia/Seoul")}
 translator = Translator()
 CACHE_FILE = 'translation_cache.json'
-# 修正為豆子版標題
 SITE_TITLE = "豆子版 Techmeme | 2026.v1"
 
 def load_config():
@@ -42,7 +41,7 @@ def clean_html(raw_html):
 def apply_custom_terms(text):
     term_map = CONFIG.get('TERM_MAP', {})
     for wrong, right in term_map.items(): text = text.replace(wrong, right)
-    it_fixes = {"副駕駛": "Copilot", "智能": "智慧", "數據": "資料", "服務器": "伺服器", "軟件": "軟體", "網絡": "網路", "信息": "資訊", "計算": "運算"}
+    it_fixes = {"副駕駛": "Copilot", "智能": "智慧", "數據": "資料", "服務器": "伺服器", "軟件": "軟體", "網絡": "網路", "信息": "資訊"}
     for w, r in it_fixes.items(): text = text.replace(w, r)
     return text
 
@@ -55,12 +54,11 @@ def highlight_keywords(text):
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
 
 def fetch_html_fallback(name, url, selectors, tag_name):
-    """強化 HTML 抓取：模擬真實 Session 與路徑追蹤 """
+    """強化 HTML 抓取：支援 CSS 模糊匹配與多級 Session 模擬"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Referer': 'https://www.google.com/',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
     }
     articles = []
     try:
@@ -77,7 +75,7 @@ def fetch_html_fallback(name, url, selectors, tag_name):
             
         for item in items[:15]:
             title = item.get_text().strip()
-            link = item.get('href')
+            link = item.get('href', '')
             if not title or not link or len(title) < 5: continue
             if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
             articles.append({
@@ -178,6 +176,8 @@ def render_column(daily_clusters, title_prefix):
             html += f"<div class='story-block {'priority' if group['priority'] else ''}' data-id=\"{safe_id}\" title=\"{first.get('display_summary','')}\">"
             html += f"<div class='headline-wrapper'><span class='star-btn' onclick='toggleStar(\"{safe_id}\")'>★</span>"
             html += f"<a class='headline' href='{first['link']}' target='_blank'>{first['display_title']} <span class='source-tag'>{meta}</span></a></div>"
+            if 'raw_title' in first and first['display_title'].find(first['raw_title']) == -1:
+                html += f"<div class='original-title'>{first['raw_title']}</div>"
             for up in sorted(group['articles'][1:], key=lambda x: x['time'], reverse=True)[:5]:
                 html += f"<a class='sub-link' href='{up['link']}' target='_blank'>↳ {up['source']}: {up.get('translated_title', up['raw_title'])}</a>"
             html += "</div>"
@@ -189,27 +189,35 @@ def main():
     tw_raw, tw_st = fetch_data(CONFIG['FEEDS']['TW'])
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
 
-    # --- 終極修正：補抓 0 產出來源 ---
-    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['h3 a', 'a[class*="title"]', '.n-card__title a'], '')
+    # --- 豆子特別調教：攻堅 0 產出來源 ---
+    # Nikkei Asia: 擴大 CSS 選擇器範圍
+    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['h2 a', 'h3 a', 'a[class*="title"]', '.n-card__title-link'], '')
     if nikkei_web: intl_raw.setdefault(today_str, []).extend(nikkei_web); intl_st['Nikkei Asia'] = len(nikkei_web)
 
-    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', 'article h3 a'], '[分析]')
+    # CIO Taiwan: 已救活，穩住
+    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', 'article h3 a', '.post-title a'], '[分析]')
     if cio_web: tw_raw.setdefault(today_str, []).extend(cio_web); tw_st['CIO Taiwan'] = len(cio_web)
 
-    bnext_web = fetch_html_fallback('數位時代', 'https://www.bnext.com.tw/articles', ['a.item_title', '.item_box a'], '[數位]')
+    # 數位時代主站: 全面取代 Meet RSS
+    bnext_web = fetch_html_fallback('數位時代', 'https://www.bnext.com.tw/articles', ['a.item_title', '.item_box a', '.article_title'], '[數位]')
     if bnext_web: tw_raw.setdefault(today_str, []).extend(bnext_web); tw_st['數位時代'] = len(bnext_web)
 
-    zdj_web = fetch_html_fallback('ZDNet Japan', 'https://japan.zdnet.com', ['section.content-list h3 a', 'h3 a', '.content-list__title a'], '[日]')
+    # ZDNet Japan: 嘗試更深層的路徑
+    zdj_web = fetch_html_fallback('ZDNet Japan', 'https://japan.zdnet.com', ['section.content-list h3 a', '.content-list h3 a', 'h3 a'], '[日]')
     if zdj_web: jk_raw.setdefault(today_str, []).extend(zdj_web); jk_st['ZDNet Japan'] = len(zdj_web)
     
-    impress_web = fetch_html_fallback('Impress IT', 'https://it.impress.co.jp', ['div.article p.title a', 'p.title a'], '[日]')
+    # IT Impress: 備用路徑
+    impress_web = fetch_html_fallback('Impress IT', 'https://it.impress.co.jp', ['div.article p.title a', 'p.title a', 'h2 a'], '[日]')
     if impress_web: jk_raw.setdefault(today_str, []).extend(impress_web); jk_st['Impress IT'] = len(impress_web)
 
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
     all_st = {**intl_st, **jk_st, **tw_st}
     
-    stats_items = [f"<div class='stat-row'><span class='stat-name'>{'●' if v > 0 else '○'} {k}</span><div class='stat-bar-container'><div class='stat-bar-fill' style='width: {min(v*4,100)}%; background: {'var(--accent)' if v > 0 else '#e74c3c'}'></div></div><span class='stat-count' style='color: {'var(--accent)' if v > 0 else '#e74c3c'}'>{v}</span></div>" for k, v in sorted(all_st.items(), key=lambda x: x[1], reverse=True)]
+    stats_items = []
+    for k, v in sorted(all_st.items(), key=lambda x: x[1], reverse=True):
+        status_color = "var(--accent)" if v > 0 else "#e74c3c"
+        stats_items.append(f"<div class='stat-row'><span class='stat-name'>{'●' if v > 0 else '○'} {k}</span><div class='stat-bar-container'><div class='stat-bar-fill' style='width: {min(v*4,100)}%; background: {status_color}'></div></div><span class='stat-count' style='color: {status_color}'>{v}</span></div>")
 
     full_html = f"""
     <html><head><meta charset='UTF-8'><title>{SITE_TITLE}</title><style>
@@ -227,6 +235,7 @@ def main():
         .river {{ background: var(--bg); padding: 10px 15px; }}
         .river-title {{ font-size: 17px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 5px; }}
         .headline {{ color: var(--link); text-decoration: none; font-size: 14.5px; font-weight: bold; }}
+        .headline:visited {{ color: var(--visited); }}
         .star-btn {{ cursor: pointer; color: #ccc; margin-right: 6px; font-size: 16px; }}
         .star-btn.active {{ color: #f1c40f; }}
         .btn {{ cursor: pointer; padding: 4px 12px; border: 1px solid var(--text); font-size: 11px; font-weight: bold; background: var(--bg); color: var(--text); border-radius: 4px; }}
