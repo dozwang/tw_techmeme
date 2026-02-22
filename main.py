@@ -1,4 +1,4 @@
-import feedparser, datetime, pytz, os, difflib, requests, json, re, time
+import feedparser, datetime, pytz, os, difflib, requests, json, re, time, random
 from dateutil import parser as date_parser
 from googletrans import Translator
 import urllib3
@@ -22,7 +22,6 @@ def translate_text(text):
     if not text: return ""
     try:
         res = translator.translate(text, dest='zh-tw').text
-        # 套用自定義詞彙表
         for wrong, right in CONFIG.get('TERM_MAP', {}).items():
             res = res.replace(wrong, right)
         return res
@@ -40,6 +39,17 @@ def is_blacklisted(text):
 
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.4
 
+def fetch_with_session(url):
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'application/rss+xml,application/xml;q=0.9,*/*;q=0.8'
+    }
+    try:
+        resp = session.get(url, headers=headers, timeout=15, verify=False)
+        return resp
+    except: return None
+
 def fetch_data(feed_list):
     data_by_date, stats, seen = {}, {}, []
     now_utc = datetime.datetime.now(pytz.utc)
@@ -47,21 +57,19 @@ def fetch_data(feed_list):
     for item in feed_list:
         url, tag = item['url'], item['tag']
         try:
-            resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
+            resp = fetch_with_session(url)
+            if not resp or resp.status_code != 200: continue
             feed = feedparser.parse(resp.content)
             s_name = feed.feed.title if 'title' in feed.feed else url.split('/')[2]
-            s_name = s_name.split('|')[0].split('-')[0].strip()[:15]
+            s_name = s_name.split('|')[0].split('-')[0].strip()[:18]
             stats[s_name] = 0
             for entry in feed.entries[:20]:
                 title = entry.title.strip()
-                # 過濾重複與黑名單
                 if is_blacklisted(title) or any(is_similar(title, s) for s in seen): continue
-                
                 raw_date = entry.get('published', entry.get('pubDate', entry.get('updated', None)))
                 try: p_date = date_parser.parse(raw_date, tzinfos=TZ_INFOS).astimezone(pytz.utc)
                 except: p_date = now_utc
                 if p_date < limit_time: continue
-                
                 p_date_tw = p_date.astimezone(TW_TZ)
                 date_str = p_date_tw.strftime('%Y-%m-%d')
                 data_by_date.setdefault(date_str, []).append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date_tw, 'tag_html': tag})
@@ -89,32 +97,32 @@ def render_column(data, title, need_trans=False):
     return html + "</div>"
 
 def main():
-    print(">>> [1/2] 正在同步大數據與黑名單過濾中...", flush=True)
     intl_raw, intl_st, _ = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_raw, jk_st, _ = fetch_data(CONFIG['FEEDS']['JK'])
     tw_raw, tw_st, _ = fetch_data(CONFIG['FEEDS']['TW'])
-
-    print(">>> [2/2] 翻譯與卡片儀表板產出中...", flush=True)
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
     
+    # 建立「列表式」統計 HTML
     all_stats = {**intl_st, **jk_st, **tw_st}
-    stats_cards = ""
+    stats_list_items = ""
     for k, v in sorted(all_stats.items(), key=lambda x: x[1], reverse=True):
-        status_color = "#27ae60" if v > 0 else "#e74c3c"
-        stats_cards += f"<div class='stat-card' style='border-top:3px solid {status_color};'><div class='s-name'>{k}</div><div class='s-value'>{v}</div></div>"
+        scolor = "#27ae60" if v > 0 else "#e74c3c"
+        stats_list_items += f"<li><span style='color:{scolor}; font-weight:bold;'>{v}</span> - {k}</li>"
 
     full_html = f"""
     <html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>{SITE_TITLE}</title>
     <style>
-        :root {{ --bg: #fff; --text: #333; --border: #eee; --link: #1a0dab; --hi: #ff98001a; --kw: #e67e22; --card-bg: #f8f9fa; }}
-        @media (prefers-color-scheme: dark) {{ :root {{ --bg: #1a1a1a; --text: #ccc; --border: #333; --link: #8ab4f8; --card-bg: #2d2d2d; }} }}
+        :root {{ --bg: #fff; --text: #333; --border: #eee; --link: #1a0dab; --hi: #ff98001a; --kw: #e67e22; --stat-bg: #f9f9f9; }}
+        @media (prefers-color-scheme: dark) {{ :root {{ --bg: #1a1a1a; --text: #ccc; --border: #333; --link: #8ab4f8; --stat-bg: #252525; }} }}
         body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; }}
         .header {{ padding: 12px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 1000; }}
-        #stats-panel {{ display: none; padding: 20px; background: var(--card-bg); border-bottom: 1px solid var(--border); }}
-        .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }}
-        .stat-card {{ padding: 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-        .s-name {{ font-size: 10px; color: #888; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }}
-        .s-value {{ font-size: 16px; font-weight: bold; margin-top: 2px; }}
+        
+        /* 列表統計面板 */
+        #stats-panel {{ display: none; padding: 15px 25px; background: var(--stat-bg); border-bottom: 1px solid var(--border); font-size: 13px; }}
+        .stats-columns {{ column-count: 4; column-gap: 30px; list-style: none; padding: 0; margin: 0; }}
+        @media (max-width: 1000px) {{ .stats-columns {{ column-count: 2; }} }}
+        .stats-columns li {{ padding: 3px 0; border-bottom: 1px dashed var(--border); break-inside: avoid; }}
+
         .wrapper {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); }}
         @media (max-width: 900px) {{ .wrapper {{ grid-template-columns: 1fr; }} }}
         .river {{ background: var(--bg); padding: 15px; }}
@@ -128,7 +136,6 @@ def main():
         .star-btn.active {{ color: #f1c40f; }}
         .kw-highlight {{ color: var(--kw); font-weight: bold; }}
         .btn {{ cursor: pointer; padding: 5px 12px; border: 1px solid var(--text); font-size: 12px; border-radius: 4px; font-weight: bold; background: var(--bg); color: var(--text); }}
-        body.only-stars .story-block:not(.has-star) {{ display: none; }}
     </style></head><body>
         <div class='header'>
             <h1 style='margin:0; font-size:20px;'>{SITE_TITLE}</h1>
@@ -138,7 +145,7 @@ def main():
                 <small style='margin-left:10px; font-size:10px; color:#888;'>{now_str}</small>
             </div>
         </div>
-        <div id='stats-panel'><div class='stats-grid'>{stats_cards}</div></div>
+        <div id='stats-panel'><ul class='stats-columns'>{stats_list_items}</ul></div>
         <div class='wrapper'>
             {render_column(intl_raw, "Global Strategy", True)}
             {render_column(jk_raw, "Japan/Korea", True)}
@@ -158,9 +165,7 @@ def main():
             function init() {{
                 const s = JSON.parse(localStorage.getItem('tech_stars')||'[]');
                 document.querySelectorAll('.story-block').forEach(el => {{
-                    if(s.includes(el.getAttribute('data-link'))) {{
-                        el.classList.add('has-star'); el.querySelector('.star-btn').classList.add('active');
-                    }}
+                    if(s.includes(el.getAttribute('data-link'))) {{ el.classList.add('has-star'); el.querySelector('.star-btn').classList.add('active'); }}
                 }});
             }}
             document.addEventListener('DOMContentLoaded', init);
@@ -168,7 +173,6 @@ def main():
     </body></html>
     """
     with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
-    print(">>> [成功] 戰情室完整復活且具備過濾功能！", flush=True)
 
 if __name__ == "__main__":
     main()
