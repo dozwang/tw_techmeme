@@ -16,22 +16,18 @@ CACHE_FILE = 'translation_cache.json'
 SITE_TITLE = "豆子版 Techmeme，彙整台美日韓最新IT新聞. 2026.v1"
 
 def load_config():
-    with open('feeds.json', 'r', encoding='utf-8') as f:
-        return json.load(f)
+    with open('feeds.json', 'r', encoding='utf-8') as f: return json.load(f)
 
 def load_cache():
     if os.path.exists(CACHE_FILE):
         try:
-            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+            with open(CACHE_FILE, 'r', encoding='utf-8') as f: return json.load(f)
         except: return {}
     return {}
 
 def save_cache(cache_data):
-    if len(cache_data) > 3500:
-        cache_data = dict(list(cache_data.items())[-3500:])
-    with open(CACHE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(cache_data, f, ensure_ascii=False, indent=2)
+    if len(cache_data) > 3500: cache_data = dict(list(cache_data.items())[-3500:])
+    with open(CACHE_FILE, 'w', encoding='utf-8') as f: json.dump(cache_data, f, ensure_ascii=False, indent=2)
 
 CONFIG = load_config()
 TRANS_CACHE = load_cache()
@@ -39,16 +35,13 @@ TRANS_CACHE = load_cache()
 def clean_html(raw_html):
     if not raw_html: return ""
     cleanr = re.compile('<.*?>')
-    cleantext = re.sub(cleanr, '', str(raw_html))
-    return cleantext[:160].strip() + "..."
+    return re.sub(cleanr, '', str(raw_html))[:160].strip() + "..."
 
 def apply_custom_terms(text):
     term_map = CONFIG.get('TERM_MAP', {})
-    for wrong, right in term_map.items():
-        text = text.replace(wrong, right)
-    it_fixes = {"副駕駛": "Copilot", "智能": "智慧", "數據": "資料", "服務器": "伺服器", "軟件": "軟體", "網絡": "網路", "信息": "資訊", "雲端原生": "雲原生"}
-    for w, r in it_fixes.items():
-        text = text.replace(w, r)
+    for wrong, right in term_map.items(): text = text.replace(wrong, right)
+    it_fixes = {"副駕駛": "Copilot", "智能": "智慧", "數據": "資料", "服務器": "伺服器", "軟件": "軟體", "網絡": "網路", "信息": "資訊"}
+    for w, r in it_fixes.items(): text = text.replace(w, r)
     return text
 
 def highlight_keywords(text):
@@ -57,39 +50,28 @@ def highlight_keywords(text):
         text = pattern.sub(f'<span class="kw-highlight">\\g<0></span>', text)
     return text
 
-def is_similar(a, b):
-    return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
+def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
 
-def fetch_bnext_custom():
-    """進階抓取：直接解析數位時代文章列表 HTML，解決 RSS 斷線問題"""
-    url = "https://www.bnext.com.tw/articles"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        'Referer': 'https://www.google.com/'
-    }
+def fetch_html_fallback(name, url, selector, tag_name):
+    """備援抓取：針對 RSS 失效的來源直接解析 HTML"""
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
     articles = []
     try:
-        resp = requests.get(url, headers=headers, timeout=30, verify=False)
+        resp = requests.get(url, headers=headers, timeout=25, verify=False)
         resp.encoding = 'utf-8'
         soup = BeautifulSoup(resp.text, 'html.parser')
-        # 抓取標籤為 item_title 的連結
-        items = soup.select('a.item_title')
-        for item in items[:15]:
+        items = soup.select(selector)
+        for item in items[:10]:
             title = item.get_text().strip()
             link = item.get('href')
-            if not title or not link: continue
-            if link.startswith('/'): link = "https://www.bnext.com.tw" + link
+            if not link: continue
+            if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
             articles.append({
-                'raw_title': title, 
-                'link': link, 
-                'source': '數位時代(Web)', 
-                'time': datetime.datetime.now(TW_TZ), 
-                'tag_html': '[數位]', 
-                'is_analysis': False, 
-                'raw_summary': ""
+                'raw_title': title, 'link': link, 'source': f"{name}(Web)",
+                'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_name,
+                'is_analysis': "[分析]" in tag_name, 'raw_summary': ""
             })
-    except Exception as e:
-        print(f"數位時代進階抓取錯誤: {e}")
+    except: pass
     return articles
 
 def fetch_data(feed_list):
@@ -97,14 +79,13 @@ def fetch_data(feed_list):
     now_utc = datetime.datetime.now(pytz.utc)
     limit_time = now_utc - datetime.timedelta(hours=72)
     seen_titles = []
-    tz_infos = {"PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific"), "JST": pytz.timezone("Asia/Tokyo"), "GMT": pytz.UTC}
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+    headers = {'User-Agent': 'Mozilla/5.0'}
     full_blacklist = [kw.lower().strip() for kw in (CONFIG.get('BLACKLIST_GENERAL', []) + CONFIG.get('BLACKLIST_TECH_RELATED', [])) if kw]
     
     for item in feed_list:
         url, tag = item['url'], item['tag']
         try:
-            resp = requests.get(url, headers=headers, timeout=25, verify=False)
+            resp = requests.get(url, headers=headers, timeout=20, verify=False)
             feed = feedparser.parse(resp.content)
             s_name = feed.feed.title if 'title' in feed.feed else url.split('/')[2]
             stats[s_name] = 0
@@ -114,15 +95,13 @@ def fetch_data(feed_list):
                 if any(is_similar(title, seen) for seen in seen_titles): continue
                 raw_date = entry.get('published', entry.get('pubDate', entry.get('updated', None)))
                 try:
-                    p_date = date_parser.parse(raw_date, tzinfos=tz_infos)
-                    p_date = p_date.astimezone(pytz.utc) if p_date.tzinfo else pytz.utc.localize(p_date)
+                    p_date = date_parser.parse(raw_date).astimezone(pytz.utc)
                 except: continue
                 if p_date < limit_time: continue
                 p_date_tw = p_date.astimezone(TW_TZ)
                 date_str = p_date_tw.strftime('%Y-%m-%d')
                 data_by_date.setdefault(date_str, []).append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date_tw, 'tag_html': tag, 'is_analysis': "[分析]" in tag, 'raw_summary': clean_html(entry.get('summary', ""))})
-                seen_titles.append(title)
-                stats[s_name] += 1
+                seen_titles.append(title); stats[s_name] += 1
         except: continue
     return data_by_date, stats
 
@@ -198,13 +177,24 @@ def main():
     intl_raw, intl_st = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_raw, jk_st = fetch_data(CONFIG['FEEDS']['JK'])
     tw_raw, tw_st = fetch_data(CONFIG['FEEDS']['TW'])
-    
-    # 加入數位時代進階抓取
-    bnext_web = fetch_bnext_custom()
-    if bnext_web:
-        today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
-        tw_raw.setdefault(today_str, []).extend(bnext_web)
-        tw_st['數位時代(Web)'] = len(bnext_web)
+    today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
+
+    # --- 備援抓取 ---
+    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', 'a.n-card__title-link', '')
+    intl_raw.setdefault(today_str, []).extend(nikkei_web)
+    intl_st['Nikkei Asia(Web)'] = len(nikkei_web)
+
+    impress_web = fetch_html_fallback('Impress IT', 'https://it.impress.co.jp', 'p.title a', '[日]')
+    jk_raw.setdefault(today_str, []).extend(impress_web)
+    jk_st['Impress IT(Web)'] = len(impress_web)
+
+    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', 'h3.entry-title a', '[分析]')
+    tw_raw.setdefault(today_str, []).extend(cio_web)
+    tw_st['CIO Taiwan(Web)'] = len(cio_web)
+
+    meet_web = fetch_html_fallback('Meet Bnext', 'https://meet.bnext.com.tw/articles', 'a.item_title', '[數位]')
+    tw_raw.setdefault(today_str, []).extend(meet_web)
+    tw_st['Meet Bnext(Web)'] = len(meet_web)
 
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
@@ -213,8 +203,8 @@ def main():
     stats_items = []
     for k, v in sorted(all_st.items(), key=lambda x: x[1], reverse=True):
         status_color = "var(--accent)" if v > 0 else "#e74c3c"
-        stats_items.append(f"<div class='stat-row'><span class='stat-name'>{'● ' if v > 0 else '○ '}{k}</span><div class='stat-bar-container'><div class='stat-bar-fill' style='width: {min(v*4,100)}%; background: {status_color}'></div></div><span class='stat-count' style='color: {status_color}'>{v}</span></div>")
-    
+        stats_items.append(f"<div class='stat-row'><span class='stat-name'>{'●' if v > 0 else '○'} {k}</span><div class='stat-bar-container'><div class='stat-bar-fill' style='width: {min(v*4,100)}%; background: {status_color}'></div></div><span class='stat-count' style='color: {status_color}'>{v}</span></div>")
+
     full_html = f"""
     <html><head><meta charset='UTF-8'><title>{SITE_TITLE}</title><style>
         :root {{ --bg: #fff; --text: #333; --meta: #777; --border: #ddd; --hi: #ffff0033; --link: #1a0dab; --visited: #609; --accent: #27ae60; }}
@@ -224,13 +214,16 @@ def main():
         .controls {{ display: flex; gap: 10px; align-items: center; }}
         .btn {{ cursor: pointer; padding: 4px 12px; border: 1px solid var(--text); font-size: 11px; font-weight: bold; background: var(--bg); color: var(--text); border-radius: 4px; }}
         .btn.active {{ background: #f1c40f; color: #000; border-color: #f1c40f; }}
-        #stats-details {{ display: none; padding: 15px 20px; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border); column-count: 2; }}
+        
+        /* 調整後的緊湊統計面板 */
+        #stats-details {{ display: none; padding: 10px 20px; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border); column-count: 2; }}
         @media (prefers-color-scheme: dark) {{ #stats-details {{ background: #222; }} }}
-        .stat-row {{ display: flex; align-items: center; gap: 12px; padding: 3px 0; break-inside: avoid; border-bottom: 1px solid rgba(0,0,0,0.03); }}
-        .stat-name {{ font-size: 11px; flex: 1; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-        .stat-bar-container {{ width: 80px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden; }}
+        .stat-row {{ display: flex; align-items: center; gap: 8px; padding: 2px 0; break-inside: avoid; max-width: 450px; }}
+        .stat-name {{ font-size: 11px; width: 180px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+        .stat-bar-container {{ width: 60px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }}
         .stat-bar-fill {{ height: 100%; border-radius: 3px; }}
-        .stat-count {{ font-size: 11px; font-weight: bold; min-width: 25px; text-align: right; font-family: monospace; }}
+        .stat-count {{ font-size: 11px; font-weight: bold; width: 30px; text-align: left; font-family: monospace; }}
+
         .wrapper {{ display: grid; grid-template-columns: 1fr 1fr 1fr; width: 100%; max-width: 1900px; margin: 0 auto; gap: 1px; background: var(--border); min-height: 100vh; }}
         .river {{ background: var(--bg); padding: 10px 15px; }}
         .river-title {{ font-size: 17px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 5px; }}
