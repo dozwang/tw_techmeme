@@ -54,11 +54,12 @@ def highlight_keywords(text):
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
 
 def fetch_html_fallback(name, url, selectors, tag_name):
-    """強化 HTML 抓取：使用更真實的標頭偽裝"""
+    """強化 HTML 抓取：針對雲端封鎖進行標頭模擬"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
     }
     articles = []
     try:
@@ -75,7 +76,7 @@ def fetch_html_fallback(name, url, selectors, tag_name):
         for item in items[:15]:
             title = item.get_text().strip()
             link = item.get('href')
-            if not title or not link or len(title) < 6: continue
+            if not title or not link or len(title) < 5: continue
             if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
             articles.append({
                 'raw_title': title, 'link': link, 'source': name,
@@ -190,18 +191,23 @@ def main():
     tw_raw, tw_st = fetch_data(CONFIG['FEEDS']['TW'])
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
 
-    # --- 精準 HTML 抓取補充 (針對 0 產出來源) ---
-    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['a[class*="title"]', '.n-card__title-link a', 'h2 a'], '')
+    # --- 精準 HTML 抓取補充 (解決 0 產出來源) ---
+    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['h2 a', 'h3 a', 'a[class*="title"]'], '')
     if nikkei_web: intl_raw.setdefault(today_str, []).extend(nikkei_web); intl_st['Nikkei Asia'] = len(nikkei_web)
 
-    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', 'article h3 a', '.post-title a'], '[分析]')
+    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', '.post-title a'], '[分析]')
     if cio_web: tw_raw.setdefault(today_str, []).extend(cio_web); tw_st['CIO Taiwan'] = len(cio_web)
 
-    bnext_web = fetch_html_fallback('數位時代', 'https://www.bnext.com.tw/articles', ['a.item_title', '.item_box a', '.article_title'], '[數位]')
+    # 數位時代主站 (改抓 bnext.com.tw)
+    bnext_web = fetch_html_fallback('數位時代', 'https://www.bnext.com.tw/articles', ['a.item_title', '.item_box a'], '[數位]')
     if bnext_web: tw_raw.setdefault(today_str, []).extend(bnext_web); tw_st['數位時代'] = len(bnext_web)
 
-    zdj_web = fetch_html_fallback('ZDNet Japan', 'https://japan.zdnet.com', ['h3 a', '.content-list__title a'], '[日]')
+    zdj_web = fetch_html_fallback('ZDNet Japan', 'https://japan.zdnet.com', ['section.content-list h3 a', 'h3 a', '.content-list__title a'], '[日]')
     if zdj_web: jk_raw.setdefault(today_str, []).extend(zdj_web); jk_st['ZDNet Japan'] = len(zdj_web)
+    
+    # IT Impress (日系)
+    impress_web = fetch_html_fallback('Impress IT', 'https://it.impress.co.jp', ['div.article p.title a', 'p.title a'], '[日]')
+    if impress_web: jk_raw.setdefault(today_str, []).extend(impress_web); jk_st['Impress IT'] = len(impress_web)
 
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
@@ -227,16 +233,8 @@ def main():
         .wrapper {{ display: grid; grid-template-columns: 1fr 1fr 1fr; width: 100%; max-width: 1900px; margin: 0 auto; gap: 1px; background: var(--border); min-height: 100vh; }}
         .river {{ background: var(--bg); padding: 10px 15px; }}
         .river-title {{ font-size: 17px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 5px; }}
-        .column-stats {{ font-size: 10px; color: var(--meta); margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dashed var(--border); }}
-        .date-header {{ background: #444; color: #fff; padding: 2px 8px; font-size: 11px; margin: 15px 0 5px; font-weight: bold; }}
-        .story-block {{ padding: 8px 0; border-bottom: 1px solid var(--border); }}
-        .story-block.priority {{ border-left: 3px solid var(--link); padding-left: 8px; }}
-        .kw-highlight {{ background-color: var(--hi); border-radius: 2px; padding: 0 2px; font-weight: 600; color: #d35400; }}
         .headline {{ color: var(--link); text-decoration: none; font-size: 14.5px; font-weight: bold; }}
         .headline:visited {{ color: var(--visited); }}
-        .original-title {{ font-size: 11px; color: var(--meta); margin: 2px 0 4px 22px; }}
-        .sub-link {{ display: block; font-size: 11px; color: var(--link); opacity: 0.8; margin: 4px 0 0 22px; text-decoration: none; }}
-        .source-tag {{ font-size: 11px; color: var(--meta); font-weight: normal; }}
         .star-btn {{ cursor: pointer; color: #ccc; margin-right: 6px; font-size: 16px; }}
         .star-btn.active {{ color: #f1c40f; }}
         .btn {{ cursor: pointer; padding: 4px 12px; border: 1px solid var(--text); font-size: 11px; font-weight: bold; background: var(--bg); color: var(--text); border-radius: 4px; }}
@@ -246,7 +244,7 @@ def main():
         <div id="stats-details">{"".join(stats_items)}</div>
         <div class='wrapper'>{render_column(intl_cls, "Global & Strategy")}{render_column(jk_cls, "Japan/Korea Tech")}{render_column(tw_cls, "Taiwan IT & Biz")}</div>
         <script>
-            function toggleStats() {{ const p = document.getElementById('stats-details'); const isOpen = p.style.display === 'block'; p.style.display = isOpen ? 'none' : 'grid'; }}
+            function toggleStats() {{ const p = document.getElementById('stats-details'); p.style.display = (p.style.display === 'block') ? 'none' : 'block'; }}
             function toggleStarFilter() {{ document.body.classList.toggle('only-stars'); }}
             function toggleStar(link) {{ let b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]'); b.includes(link) ? b = b.filter(i => i !== link) : b.push(link); localStorage.setItem('tech_bookmarks', JSON.stringify(b)); updateStarUI(); }}
             function updateStarUI() {{ const b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]'); document.querySelectorAll('.story-block').forEach(el => {{ const id = el.getAttribute('data-id'); const isStarred = b.includes(id); el.querySelector('.star-btn').classList.toggle('active', isStarred); el.classList.toggle('has-star', isStarred); }}); }}
