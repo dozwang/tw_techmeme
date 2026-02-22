@@ -6,11 +6,13 @@ from googletrans import Translator
 from bs4 import BeautifulSoup
 import urllib3
 
-# 停用不安全連線警告
+# 停用警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 基礎設定 ---
 TW_TZ = pytz.timezone('Asia/Taipei')
+# 修正 PST 識別問題
+TZ_INFOS = {"PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific"), "EST": pytz.timezone("US/Eastern"), "EDT": pytz.timezone("US/Eastern"), "JST": pytz.timezone("Asia/Tokyo"), "KST": pytz.timezone("Asia/Seoul")}
 translator = Translator()
 CACHE_FILE = 'translation_cache.json'
 SITE_TITLE = "豆子版 Techmeme，彙整台美日韓最新IT新聞. 2026.v1"
@@ -52,49 +54,37 @@ def highlight_keywords(text):
 
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
 
-def fetch_html_fallback(name, url, selector, tag_name):
-    """強化診斷版：針對 RSS 失效來源直接解析 HTML，失敗時印出 Log 供除錯"""
+def fetch_html_fallback(name, url, selectors, tag_name):
+    """強化版抓取：支援多組選擇器備援"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     }
     articles = []
     try:
-        session = requests.Session()
-        resp = session.get(url, headers=headers, timeout=30, verify=False)
+        resp = requests.get(url, headers=headers, timeout=30, verify=False)
+        print(f"[診斷] {name} 狀態碼: {resp.status_code}")
+        if resp.status_code != 200: return []
         
-        # --- 診斷日誌 ---
-        print(f"\n[診斷] 正在抓取: {name} | URL: {url}")
-        print(f"[診斷] HTTP 狀態碼: {resp.status_code}")
-        
-        if resp.status_code != 200:
-            print(f"[警告] {name} 請求未成功，可能遭遇 IP 封鎖。")
-            return []
-
         resp.encoding = 'utf-8'
         soup = BeautifulSoup(resp.text, 'html.parser')
-        items = soup.select(selector)
         
-        if not items:
-            print(f"[警告] {name} 選擇器 '{selector}' 抓到 0 件。HTML 前 500 字內容：")
-            print(resp.text[:500].replace('\n', ' '))
-            print("-" * 30)
-        else:
-            print(f"[成功] {name} 抓到 {len(items[:10])} 則報導。")
-
-        for item in items[:10]:
+        items = []
+        for sel in selectors:
+            items = soup.select(sel)
+            if items: break
+            
+        for item in items[:12]:
             title = item.get_text().strip()
             link = item.get('href')
-            if not title or not link: continue
+            if not title or not link or len(title) < 6: continue
             if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
             articles.append({
                 'raw_title': title, 'link': link, 'source': name,
                 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_name,
                 'is_analysis': "[分析]" in tag_name, 'raw_summary': ""
             })
-    except Exception as e:
-        print(f"[錯誤] {name} 發生異常: {e}")
+    except Exception as e: print(f"[錯誤] {name}: {e}")
     return articles
 
 def fetch_data(feed_list):
@@ -102,13 +92,13 @@ def fetch_data(feed_list):
     now_utc = datetime.datetime.now(pytz.utc)
     limit_time = now_utc - datetime.timedelta(hours=72)
     seen_titles = []
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
     full_blacklist = [kw.lower().strip() for kw in (CONFIG.get('BLACKLIST_GENERAL', []) + CONFIG.get('BLACKLIST_TECH_RELATED', [])) if kw]
     
     for item in feed_list:
         url, tag = item['url'], item['tag']
         try:
-            resp = requests.get(url, headers=headers, timeout=20, verify=False)
+            resp = requests.get(url, headers=headers, timeout=25, verify=False)
             feed = feedparser.parse(resp.content)
             s_name = feed.feed.title if 'title' in feed.feed else url.split('/')[2]
             stats[s_name] = 0
@@ -118,7 +108,7 @@ def fetch_data(feed_list):
                 if any(is_similar(title, seen) for seen in seen_titles): continue
                 raw_date = entry.get('published', entry.get('pubDate', entry.get('updated', None)))
                 try:
-                    p_date = date_parser.parse(raw_date).astimezone(pytz.utc)
+                    p_date = date_parser.parse(raw_date, tzinfos=TZ_INFOS).astimezone(pytz.utc)
                 except: continue
                 if p_date < limit_time: continue
                 p_date_tw = p_date.astimezone(TW_TZ)
@@ -202,26 +192,18 @@ def main():
     tw_raw, tw_st = fetch_data(CONFIG['FEEDS']['TW'])
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
 
-    # --- 備援抓取與診斷 ---
-    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', 'a[class*="n-card__title-link"], .n-headline__text a', '')
-    if nikkei_web:
-        intl_raw.setdefault(today_str, []).extend(nikkei_web)
-        intl_st['Nikkei Asia'] = len(nikkei_web)
+    # --- 修正後的選擇器與備援 ---
+    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['a[class*="n-card__title"]', '.n-headline__text a'], '')
+    if nikkei_web: intl_raw.setdefault(today_str, []).extend(nikkei_web); intl_st['Nikkei Asia'] = len(nikkei_web)
 
-    impress_web = fetch_html_fallback('Impress IT', 'https://it.impress.co.jp', 'p.title a', '[日]')
-    if impress_web:
-        jk_raw.setdefault(today_str, []).extend(impress_web)
-        jk_st['Impress IT'] = len(impress_web)
+    impress_web = fetch_html_fallback('Impress IT', 'https://it.impress.co.jp', ['article .title a', 'p.title a'], '[日]')
+    if impress_web: jk_raw.setdefault(today_str, []).extend(impress_web); jk_st['Impress IT'] = len(impress_web)
 
-    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', 'h3.entry-title a', '[分析]')
-    if cio_web:
-        tw_raw.setdefault(today_str, []).extend(cio_web)
-        tw_st['CIO Taiwan'] = len(cio_web)
+    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', '.post-title a'], '[分析]')
+    if cio_web: tw_raw.setdefault(today_str, []).extend(cio_web); tw_st['CIO Taiwan'] = len(cio_web)
 
-    meet_web = fetch_html_fallback('Meet Bnext', 'https://meet.bnext.com.tw/articles', 'a.item_title', '[數位]')
-    if meet_web:
-        tw_raw.setdefault(today_str, []).extend(meet_web)
-        tw_st['Meet Bnext'] = len(meet_web)
+    meet_web = fetch_html_fallback('Meet Bnext', 'https://meet.bnext.com.tw/articles', ['a.item_title', '.item_box a'], '[數位]')
+    if meet_web: tw_raw.setdefault(today_str, []).extend(meet_web); tw_st['Meet Bnext'] = len(meet_web)
 
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
@@ -250,8 +232,6 @@ def main():
         .kw-highlight {{ background-color: var(--hi); border-radius: 2px; padding: 0 2px; font-weight: 600; color: #d35400; }}
         .headline {{ color: var(--link); text-decoration: none; font-size: 14.5px; font-weight: bold; }}
         .headline:visited {{ color: var(--visited); }}
-        .star-btn {{ cursor: pointer; color: #ccc; margin-right: 6px; font-size: 16px; }}
-        .star-btn.active {{ color: #f1c40f; }}
         .btn {{ cursor: pointer; padding: 4px 12px; border: 1px solid var(--text); font-size: 11px; font-weight: bold; background: var(--bg); color: var(--text); border-radius: 4px; }}
     </style></head><body>
         <div class='header'><h1>{SITE_TITLE}</h1><div class='controls'><div id='stats-btn' class='btn' onclick='toggleStats()'>📊 來源統計</div><div id='star-filter' class='btn' onclick='toggleStarFilter()'>★ 僅看星號</div><div style="font-size:11px; color:var(--meta);">{now_str}</div></div></div>
@@ -261,7 +241,7 @@ def main():
             function toggleStats() {{ const p = document.getElementById('stats-details'); const isOpen = p.style.display === 'block'; p.style.display = isOpen ? 'none' : 'grid'; }}
             function toggleStarFilter() {{ document.body.classList.toggle('only-stars'); }}
             function toggleStar(link) {{ let b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]'); b.includes(link) ? b = b.filter(i => i !== link) : b.push(link); localStorage.setItem('tech_bookmarks', JSON.stringify(b)); updateStarUI(); }}
-            function updateStarUI() {{ const b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]'); document.querySelectorAll('.story-block').forEach(el => {{ const isStarred = b.includes(el.getAttribute('data-id')); el.querySelector('.star-btn').classList.toggle('active', isStarred); }}); }}
+            function updateStarUI() {{ const b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]'); document.querySelectorAll('.story-block').forEach(el => {{ const id = el.getAttribute('data-id'); const isStarred = b.includes(id); el.querySelector('.star-btn').classList.toggle('active', isStarred); }}); }}
             document.addEventListener('DOMContentLoaded', updateStarUI);
         </script></body></html>
     """
