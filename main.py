@@ -6,12 +6,11 @@ from googletrans import Translator
 from bs4 import BeautifulSoup
 import urllib3
 
-# 停用警告
+# 停用連線警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 基礎設定 ---
 TW_TZ = pytz.timezone('Asia/Taipei')
-# 修正 PST 識別問題
 TZ_INFOS = {"PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific"), "EST": pytz.timezone("US/Eastern"), "EDT": pytz.timezone("US/Eastern"), "JST": pytz.timezone("Asia/Tokyo"), "KST": pytz.timezone("Asia/Seoul")}
 translator = Translator()
 CACHE_FILE = 'translation_cache.json'
@@ -55,17 +54,16 @@ def highlight_keywords(text):
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
 
 def fetch_html_fallback(name, url, selectors, tag_name):
-    """強化版抓取：支援多組選擇器備援"""
+    """強化 HTML 抓取：使用更真實的標頭偽裝"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
     }
     articles = []
     try:
         resp = requests.get(url, headers=headers, timeout=30, verify=False)
-        print(f"[診斷] {name} 狀態碼: {resp.status_code}")
         if resp.status_code != 200: return []
-        
         resp.encoding = 'utf-8'
         soup = BeautifulSoup(resp.text, 'html.parser')
         
@@ -74,7 +72,7 @@ def fetch_html_fallback(name, url, selectors, tag_name):
             items = soup.select(sel)
             if items: break
             
-        for item in items[:12]:
+        for item in items[:15]:
             title = item.get_text().strip()
             link = item.get('href')
             if not title or not link or len(title) < 6: continue
@@ -84,7 +82,7 @@ def fetch_html_fallback(name, url, selectors, tag_name):
                 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_name,
                 'is_analysis': "[分析]" in tag_name, 'raw_summary': ""
             })
-    except Exception as e: print(f"[錯誤] {name}: {e}")
+    except: pass
     return articles
 
 def fetch_data(feed_list):
@@ -192,18 +190,18 @@ def main():
     tw_raw, tw_st = fetch_data(CONFIG['FEEDS']['TW'])
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
 
-    # --- 修正後的選擇器與備援 ---
-    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['a[class*="n-card__title"]', '.n-headline__text a'], '')
+    # --- 精準 HTML 抓取補充 (針對 0 產出來源) ---
+    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['a[class*="title"]', '.n-card__title-link a', 'h2 a'], '')
     if nikkei_web: intl_raw.setdefault(today_str, []).extend(nikkei_web); intl_st['Nikkei Asia'] = len(nikkei_web)
 
-    impress_web = fetch_html_fallback('Impress IT', 'https://it.impress.co.jp', ['article .title a', 'p.title a'], '[日]')
-    if impress_web: jk_raw.setdefault(today_str, []).extend(impress_web); jk_st['Impress IT'] = len(impress_web)
-
-    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', '.post-title a'], '[分析]')
+    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', 'article h3 a', '.post-title a'], '[分析]')
     if cio_web: tw_raw.setdefault(today_str, []).extend(cio_web); tw_st['CIO Taiwan'] = len(cio_web)
 
-    meet_web = fetch_html_fallback('Meet Bnext', 'https://meet.bnext.com.tw/articles', ['a.item_title', '.item_box a'], '[數位]')
-    if meet_web: tw_raw.setdefault(today_str, []).extend(meet_web); tw_st['Meet Bnext'] = len(meet_web)
+    bnext_web = fetch_html_fallback('數位時代', 'https://www.bnext.com.tw/articles', ['a.item_title', '.item_box a', '.article_title'], '[數位]')
+    if bnext_web: tw_raw.setdefault(today_str, []).extend(bnext_web); tw_st['數位時代'] = len(bnext_web)
+
+    zdj_web = fetch_html_fallback('ZDNet Japan', 'https://japan.zdnet.com', ['h3 a', '.content-list__title a'], '[日]')
+    if zdj_web: jk_raw.setdefault(today_str, []).extend(zdj_web); jk_st['ZDNet Japan'] = len(zdj_web)
 
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
@@ -218,7 +216,7 @@ def main():
     <html><head><meta charset='UTF-8'><title>{SITE_TITLE}</title><style>
         :root {{ --bg: #fff; --text: #333; --meta: #777; --border: #ddd; --hi: #ffff0033; --link: #1a0dab; --visited: #609; --accent: #27ae60; }}
         @media (prefers-color-scheme: dark) {{ :root {{ --bg: #1a1a1a; --text: #ccc; --meta: #999; --border: #333; --hi: #ffd70033; --link: #8ab4f8; --visited: #c58af9; }} }}
-        body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.2; }}
+        body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.3; }}
         .header {{ padding: 10px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 100; }}
         #stats-details {{ display: none; padding: 10px 20px; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border); column-count: 2; }}
         .stat-row {{ display: flex; align-items: center; gap: 8px; padding: 2px 0; break-inside: avoid; max-width: 450px; }}
@@ -229,10 +227,20 @@ def main():
         .wrapper {{ display: grid; grid-template-columns: 1fr 1fr 1fr; width: 100%; max-width: 1900px; margin: 0 auto; gap: 1px; background: var(--border); min-height: 100vh; }}
         .river {{ background: var(--bg); padding: 10px 15px; }}
         .river-title {{ font-size: 17px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 5px; }}
+        .column-stats {{ font-size: 10px; color: var(--meta); margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dashed var(--border); }}
+        .date-header {{ background: #444; color: #fff; padding: 2px 8px; font-size: 11px; margin: 15px 0 5px; font-weight: bold; }}
+        .story-block {{ padding: 8px 0; border-bottom: 1px solid var(--border); }}
+        .story-block.priority {{ border-left: 3px solid var(--link); padding-left: 8px; }}
         .kw-highlight {{ background-color: var(--hi); border-radius: 2px; padding: 0 2px; font-weight: 600; color: #d35400; }}
         .headline {{ color: var(--link); text-decoration: none; font-size: 14.5px; font-weight: bold; }}
         .headline:visited {{ color: var(--visited); }}
+        .original-title {{ font-size: 11px; color: var(--meta); margin: 2px 0 4px 22px; }}
+        .sub-link {{ display: block; font-size: 11px; color: var(--link); opacity: 0.8; margin: 4px 0 0 22px; text-decoration: none; }}
+        .source-tag {{ font-size: 11px; color: var(--meta); font-weight: normal; }}
+        .star-btn {{ cursor: pointer; color: #ccc; margin-right: 6px; font-size: 16px; }}
+        .star-btn.active {{ color: #f1c40f; }}
         .btn {{ cursor: pointer; padding: 4px 12px; border: 1px solid var(--text); font-size: 11px; font-weight: bold; background: var(--bg); color: var(--text); border-radius: 4px; }}
+        body.only-stars .story-block:not(.has-star) {{ display: none; }}
     </style></head><body>
         <div class='header'><h1>{SITE_TITLE}</h1><div class='controls'><div id='stats-btn' class='btn' onclick='toggleStats()'>📊 來源統計</div><div id='star-filter' class='btn' onclick='toggleStarFilter()'>★ 僅看星號</div><div style="font-size:11px; color:var(--meta);">{now_str}</div></div></div>
         <div id="stats-details">{"".join(stats_items)}</div>
@@ -241,7 +249,7 @@ def main():
             function toggleStats() {{ const p = document.getElementById('stats-details'); const isOpen = p.style.display === 'block'; p.style.display = isOpen ? 'none' : 'grid'; }}
             function toggleStarFilter() {{ document.body.classList.toggle('only-stars'); }}
             function toggleStar(link) {{ let b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]'); b.includes(link) ? b = b.filter(i => i !== link) : b.push(link); localStorage.setItem('tech_bookmarks', JSON.stringify(b)); updateStarUI(); }}
-            function updateStarUI() {{ const b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]'); document.querySelectorAll('.story-block').forEach(el => {{ const id = el.getAttribute('data-id'); const isStarred = b.includes(id); el.querySelector('.star-btn').classList.toggle('active', isStarred); }}); }}
+            function updateStarUI() {{ const b = JSON.parse(localStorage.getItem('tech_bookmarks') || '[]'); document.querySelectorAll('.story-block').forEach(el => {{ const id = el.getAttribute('data-id'); const isStarred = b.includes(id); el.querySelector('.star-btn').classList.toggle('active', isStarred); el.classList.toggle('has-star', isStarred); }}); }}
             document.addEventListener('DOMContentLoaded', updateStarUI);
         </script></body></html>
     """
