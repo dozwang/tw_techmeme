@@ -59,27 +59,37 @@ def highlight_keywords(text):
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
 
 def fetch_html_fallback(name, url, selectors, tag_name):
-    """強化手機版偽裝抓取"""
-    # 使用 iPhone User-Agent 繞過部分 WAF 封鎖
-    mobile_headers = {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Referer': 'https://www.google.com/'
+    """終極偽裝抓取：模擬 Google 來源與多樣化標頭"""
+    uas = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+    ]
+    headers = {
+        'User-Agent': random.choice(uas),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ja-JP,ja;q=0.9,zh-TW;q=0.8,zh;q=0.7,en-US;q=0.6,en;q=0.5',
+        'Referer': 'https://www.google.com/',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
     }
     articles = []
     try:
-        time.sleep(random.uniform(2, 4))
-        resp = requests.get(url, headers=mobile_headers, timeout=25, verify=False)
+        time.sleep(random.uniform(3, 6)) # 延長等待避免頻率過高
+        session = requests.Session()
+        resp = session.get(url, headers=headers, timeout=30, verify=False)
         if resp.status_code != 200:
             print(f"[診斷] {name} 抓取失敗: HTTP {resp.status_code}", flush=True)
             return []
+        
         resp.encoding = 'utf-8'
         soup = BeautifulSoup(resp.text, 'html.parser')
         items = []
         for sel in selectors:
             items = soup.select(sel)
             if items: break
+            
         for item in items[:15]:
             title = item.get_text().strip()
             link = item.get('href', '')
@@ -94,7 +104,7 @@ def fetch_data(feed_list):
     data_by_date, stats, seen = {}, {}, []
     now_utc = datetime.datetime.now(pytz.utc)
     limit_time = now_utc - datetime.timedelta(hours=72)
-    headers = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'}
     for item in feed_list:
         url, tag = item['url'], item['tag']
         try:
@@ -168,10 +178,10 @@ def main():
     all_seen = s1 + s2 + s3
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
 
-    # 針對性強化抓取
+    # --- 豆子特別調教：攻堅 0 產出來源 ---
     for name, url, sels, tag in [
         ('Nikkei Asia', 'https://asia.nikkei.com/Business', ['h3 a', 'a[class*="title"]'], ''),
-        ('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', 'article h3 a'], '[分析]'),
+        ('CIO Taiwan', 'https://www.cio.com.tw/category/it-strategy/', ['h3.entry-title a', 'article h3 a'], '[分析]'),
         ('數位時代', 'https://www.bnext.com.tw/articles', ['a.item_title', 'div.item_box a'], '[數位]'),
         ('ZDNet Japan', 'https://japan.zdnet.com', ['section.content-list h3 a', 'h3 a'], '[日]'),
         ('Impress IT', 'https://it.impress.co.jp', ['div.article p.title a', 'p.title a'], '[日]')
@@ -181,20 +191,15 @@ def main():
         if clean_web:
             target = intl_raw if name=='Nikkei Asia' else (tw_raw if name in ['CIO Taiwan', '數位時代'] else jk_raw)
             target.setdefault(today_str, []).extend(clean_web)
-            all_stats = {**intl_st, **jk_st, **tw_st}
-            if name in all_stats: all_stats[name] = len(clean_web)
-            else: # 手動補丁統計數據
-                if name == 'Nikkei Asia': intl_st[name] = len(clean_web)
-                elif name in ['CIO Taiwan', '數位時代']: tw_st[name] = len(clean_web)
-                else: jk_st[name] = len(clean_web)
+            if name == 'Nikkei Asia': intl_st[name] = len(clean_web)
+            elif name in ['CIO Taiwan', '數位時代']: tw_st[name] = len(clean_web)
+            else: jk_st[name] = len(clean_web)
 
     print(">>> [診斷] 開始聚類與翻譯...", flush=True)
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
     
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
     final_stats = {**intl_st, **jk_st, **tw_st}
-    
-    # 建立統計表格 HTML
     stats_items = [f"<div class='stat-row'><span>{'●' if v>0 else '○'} {k}</span><span style='font-weight:bold; color:{'#27ae60' if v>0 else '#e74c3c'}'>{v}</span></div>" for k, v in sorted(final_stats.items(), key=lambda x: x[1], reverse=True)]
 
     full_html = f"""
