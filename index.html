@@ -6,11 +6,11 @@
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; }
         .header { padding: 12px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 1000; }
         
-        /* 列表統計面板 */
         #stats-panel { display: none; padding: 15px 25px; background: var(--stat-bg); border-bottom: 1px solid var(--border); font-size: 13px; }
         .stats-columns { column-count: 4; column-gap: 30px; list-style: none; padding: 0; margin: 0; }
         @media (max-width: 1000px) { .stats-columns { column-count: 2; } }
-        .stats-columns li { padding: 3px 0; border-bottom: 1px dashed var(--border); break-inside: avoid; }
+        @media (max-width: 600px) { .stats-columns { column-count: 1; } }
+        .stats-columns li { padding: 3px 0; border-bottom: 1px dashed var(--border); break-inside: avoid; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
         .wrapper { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); }
         @media (max-width: 900px) { .wrapper { grid-template-columns: 1fr; } }
@@ -25,1087 +25,1088 @@
         .star-btn.active { color: #f1c40f; }
         .kw-highlight { color: var(--kw); font-weight: bold; }
         .btn { cursor: pointer; padding: 5px 12px; border: 1px solid var(--text); font-size: 12px; border-radius: 4px; font-weight: bold; background: var(--bg); color: var(--text); }
+        body.only-stars .story-block:not(.has-star) { display: none; }
     </style></head><body>
         <div class='header'>
             <h1 style='margin:0; font-size:20px;'>豆子版 Techmeme | 2026.v1</h1>
             <div>
                 <span class='btn' onclick='toggleStats()'>📊 來源統計</span>
                 <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span>
-                <small style='margin-left:10px; font-size:10px; color:#888;'>2026-02-23 00:38</small>
+                <small style='margin-left:10px; font-size:10px; color:#888;'>2026-02-23 01:07</small>
             </div>
         </div>
-        <div id='stats-panel'><ul class='stats-columns'><li><span style='color:#27ae60; font-weight:bold;'>18</span> - WIRED</li><li><span style='color:#27ae60; font-weight:bold;'>18</span> - TechNews 科技新報</li><li><span style='color:#27ae60; font-weight:bold;'>16</span> - TechCrunch</li><li><span style='color:#27ae60; font-weight:bold;'>16</span> - Nikkei Asia</li><li><span style='color:#27ae60; font-weight:bold;'>14</span> - Bloomberg Technolo</li><li><span style='color:#27ae60; font-weight:bold;'>14</span> - 9to5Google</li><li><span style='color:#27ae60; font-weight:bold;'>11</span> - The Register</li><li><span style='color:#27ae60; font-weight:bold;'>10</span> - IT</li><li><span style='color:#27ae60; font-weight:bold;'>8</span> - Ars Technica</li><li><span style='color:#27ae60; font-weight:bold;'>7</span> - SiliconANGLE</li><li><span style='color:#27ae60; font-weight:bold;'>5</span> - The New Stack</li><li><span style='color:#27ae60; font-weight:bold;'>4</span> - BleepingComputer</li><li><span style='color:#27ae60; font-weight:bold;'>4</span> - DIGITIMES電子時報</li><li><span style='color:#27ae60; font-weight:bold;'>3</span> - MacRumors: Mac New</li><li><span style='color:#27ae60; font-weight:bold;'>3</span> - iThome 新聞</li><li><span style='color:#27ae60; font-weight:bold;'>1</span> - The Next Web</li><li><span style='color:#27ae60; font-weight:bold;'>1</span> - ビジネス+IT HotTopics</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - datacenterknowledg</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - informationweek</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - Chris Skinner's bl</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - 全記事新着</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - japan.zdnet.com</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - ビジネス+IT IT導入検討コンテン</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - CIO Taiwan</li></ul></div>
+        <div id='stats-panel'><ul class='stats-columns'><li><span style='color:#27ae60; font-weight:bold;'>19</span> - Nikkei Asia</li><li><span style='color:#27ae60; font-weight:bold;'>18</span> - WIRED</li><li><span style='color:#27ae60; font-weight:bold;'>18</span> - TechNews 科技新報</li><li><span style='color:#27ae60; font-weight:bold;'>16</span> - TechCrunch</li><li><span style='color:#27ae60; font-weight:bold;'>14</span> - Bloomberg Technolo</li><li><span style='color:#27ae60; font-weight:bold;'>12</span> - 9to5Google</li><li><span style='color:#27ae60; font-weight:bold;'>11</span> - The Register</li><li><span style='color:#27ae60; font-weight:bold;'>10</span> - IT</li><li><span style='color:#27ae60; font-weight:bold;'>7</span> - Ars Technica</li><li><span style='color:#27ae60; font-weight:bold;'>6</span> - SiliconANGLE</li><li><span style='color:#27ae60; font-weight:bold;'>5</span> - The New Stack</li><li><span style='color:#27ae60; font-weight:bold;'>4</span> - MacRumors: Mac New</li><li><span style='color:#27ae60; font-weight:bold;'>4</span> - BleepingComputer</li><li><span style='color:#27ae60; font-weight:bold;'>4</span> - DIGITIMES電子時報</li><li><span style='color:#27ae60; font-weight:bold;'>3</span> - iThome 新聞</li><li><span style='color:#27ae60; font-weight:bold;'>1</span> - The Next Web</li><li><span style='color:#27ae60; font-weight:bold;'>1</span> - ビジネス+IT HotTopics</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - datacenterknowledg</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - informationweek</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - Chris Skinner's bl</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - 全記事新着</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - japan.zdnet.com</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - ビジネス+IT IT導入検討コンテン</li><li><span style='color:#e74c3c; font-weight:bold;'>0</span> - CIO Taiwan</li></ul></div>
         <div class='wrapper'>
             <div class='river'><div class='river-title'>Global Strategy</div><div class='date-header'>2026-02-23</div>
-            <div class='story-block' id='sb-5271144231' data-link='https://techcrunch.com/2026/02/22/chinas-brain-computer-interface-industry-is-racing-ahead/'>
+            <div class='story-block' id='sb-4292914308' data-link='https://techcrunch.com/2026/02/22/techcrunch-mobility-waymo-makes-its-defense/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5271144231")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4292914308")'>★</span>
+                    <a class='headline' href='https://techcrunch.com/2026/02/22/techcrunch-mobility-waymo-makes-its-defense/' target='_blank'> TechCrunch Mobility：Waymo 進行辯護</a>
+                </div>
+                <div class='meta'>TechCrunch | 01:05</div>
+            </div>
+            <div class='story-block' id='sb-2563186810' data-link='https://techcrunch.com/2026/02/22/chinas-brain-computer-interface-industry-is-racing-ahead/'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("2563186810")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/22/chinas-brain-computer-interface-industry-is-racing-ahead/' target='_blank'> 中國腦機介面產業快速前進</a>
                 </div>
                 <div class='meta'>TechCrunch | 00:00</div>
             </div>
-            <div class='story-block' id='sb-1380214287' data-link='https://asia.nikkei.com/spotlight/comment/with-the-last-us-russia-nuclear-pact-now-expired-new-possibilities-emerge'>
+            <div class='story-block' id='sb-7452925549' data-link='https://www.macrumors.com/2026/02/22/iphone-18-pro-foldable-iphone-rumored-colors/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1380214287")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/spotlight/comment/with-the-last-us-russia-nuclear-pact-now-expired-new-possibilities-emerge' target='_blank'> 隨著美俄最後一項核協議現已到期，新的可能性出現</a>
+                    <span class='star-btn' onclick='toggleStar("7452925549")'>★</span>
+                    <a class='headline' href='https://www.macrumors.com/2026/02/22/iphone-18-pro-foldable-iphone-rumored-colors/' target='_blank'> 報告：蘋果正在測試這些 iPhone 18 Pro 和可折疊 iPhone 的顏色</a>
                 </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-8616248995' data-link='https://asia.nikkei.com/business/automobiles/china-automakers-look-to-toyota-in-next-growth-push-in-thailand'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8616248995")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/business/automobiles/china-automakers-look-to-toyota-in-next-growth-push-in-thailand' target='_blank'> 中國汽車製造商期待豐田在泰國的下一次成長動力</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-2290376623' data-link='https://asia.nikkei.com/spotlight/your-week-in-asia/merz-visits-china-duterte-charges-india-gdp'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2290376623")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/spotlight/your-week-in-asia/merz-visits-china-duterte-charges-india-gdp' target='_blank'> 梅爾茲訪華、杜特蒂指控、印度GDP</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-7497126364' data-link='https://asia.nikkei.com/business/education/turkey-positions-itself-as-universities-hub-for-muslim-students'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7497126364")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/business/education/turkey-positions-itself-as-universities-hub-for-muslim-students' target='_blank'> 土耳其將自己定位為穆斯林學生的大學中心</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-3207049904' data-link='https://asia.nikkei.com/spotlight/comment/japan-s-takaichi-should-look-to-trump-s-taco-playbook-on-tax-cut'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3207049904")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/spotlight/comment/japan-s-takaichi-should-look-to-trump-s-taco-playbook-on-tax-cut' target='_blank'> 日本高市應借鏡川普的「TACO」減稅策略</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-3467817098' data-link='https://asia.nikkei.com/business/travel-leisure/japan-s-nara-promotes-nighttime-activity-to-change-day-trip-only-image'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3467817098")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/business/travel-leisure/japan-s-nara-promotes-nighttime-activity-to-change-day-trip-only-image' target='_blank'> 日本奈良推廣夜間活動改變「僅限一日遊」形象</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-8624940099' data-link='https://asia.nikkei.com/life-arts/life/destinations/women-take-on-growing-role-in-pakistan-s-travel-industry'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8624940099")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/life-arts/life/destinations/women-take-on-growing-role-in-pakistan-s-travel-industry' target='_blank'> 女性在巴基斯坦旅遊業中發揮越來越重要的作用</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-2038283954' data-link='https://asia.nikkei.com/opinion/yoon-suk-yeol-s-verdict-is-a-test-for-south-korean-democracy'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2038283954")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/opinion/yoon-suk-yeol-s-verdict-is-a-test-for-south-korean-democracy' target='_blank'> 尹石烈的判決是對韓國民主的考驗</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-1994574215' data-link='https://asia.nikkei.com/spotlight/japan-immigration/japan-bill-requires-airlines-deny-boarding-to-unauthorized-visitors'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1994574215")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/spotlight/japan-immigration/japan-bill-requires-airlines-deny-boarding-to-unauthorized-visitors' target='_blank'> 日本法案要求航空公司拒絕未經授權的遊客登機</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-2254700120' data-link='https://asia.nikkei.com/economy/trade-war/trump-tariffs/japan-signals-us-tariff-ruling-won-t-affect-agreed-projects-as-asia-reacts'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2254700120")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/economy/trade-war/trump-tariffs/japan-signals-us-tariff-ruling-won-t-affect-agreed-projects-as-asia-reacts' target='_blank'> 日本表示美國關稅裁決不會影響已達成的項目，亞洲對此做出反應</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-1379036576' data-link='https://asia.nikkei.com/business/agriculture/7-eleven-operator-backs-regenerative-farming-to-secure-coffee-supply'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1379036576")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/business/agriculture/7-eleven-operator-backs-regenerative-farming-to-secure-coffee-supply' target='_blank'> 7-11 營運商支持再生農業以確保咖啡供應</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-8807071942' data-link='https://asia.nikkei.com/spotlight/comment/anutin-s-surprise-win-marks-conservative-resurgence-in-thailand'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8807071942")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/spotlight/comment/anutin-s-surprise-win-marks-conservative-resurgence-in-thailand' target='_blank'> 阿努丁的意外勝利標誌著泰國保守派的復興</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-4465916631' data-link='https://asia.nikkei.com/economy/trade-war/trump-tariffs/southeast-asian-exporters-seen-as-net-winners-from-trump-tariff-ruling'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4465916631")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/economy/trade-war/trump-tariffs/southeast-asian-exporters-seen-as-net-winners-from-trump-tariff-ruling' target='_blank'> 東南亞出口商被視為川普關稅裁決的“淨贏家”</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-5127111865' data-link='https://asia.nikkei.com/politics/taiwan-s-local-election-race-heats-up-as-kmt-targets-dpp-turf'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5127111865")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/politics/taiwan-s-local-election-race-heats-up-as-kmt-targets-dpp-turf' target='_blank'> 國民黨瞄準民進黨地盤 台灣地方選舉競爭升溫</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-6868912884' data-link='https://asia.nikkei.com/business/technology/artificial-intelligence/hitachi-wields-machine-control-know-how-to-train-physical-ai'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6868912884")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/business/technology/artificial-intelligence/hitachi-wields-machine-control-know-how-to-train-physical-ai' target='_blank'> 日立利用機器控制知識來訓練實體人工智慧</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
-            </div>
-            <div class='story-block' id='sb-2875826307' data-link='https://asia.nikkei.com/business/automobiles/harley-davidson-revs-up-japan-lineup-with-23-models-this-year'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2875826307")'>★</span>
-                    <a class='headline' href='https://asia.nikkei.com/business/automobiles/harley-davidson-revs-up-japan-lineup-with-23-models-this-year' target='_blank'> 哈雷戴維森今年在日本推出 23 款車型</a>
-                </div>
-                <div class='meta'>Nikkei Asia | 00:38</div>
+                <div class='meta'>MacRumors: Mac New | 00:34</div>
             </div><div class='date-header'>2026-02-22</div>
-            <div class='story-block' id='sb-8543538137' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/22/cornwall_council_complaints_breach/'>
+            <div class='story-block' id='sb-5011125529' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/22/cornwall_council_complaints_breach/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8543538137")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5011125529")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/22/cornwall_council_complaints_breach/' target='_blank'> 英國國會因跨性別投訴處理不當而面臨資料外洩索賠</a>
                 </div>
                 <div class='meta'>The Register | 17:34</div>
             </div>
-            <div class='story-block' id='sb-8153320128' data-link='https://siliconangle.com/2026/02/21/ai-trust-gap-developers-grapple-issues-around-security-memory-cost-interoperability/'>
+            <div class='story-block' id='sb-1310110421' data-link='https://siliconangle.com/2026/02/21/ai-trust-gap-developers-grapple-issues-around-security-memory-cost-interoperability/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8153320128")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("1310110421")'>★</span>
                     <a class='headline' href='https://siliconangle.com/2026/02/21/ai-trust-gap-developers-grapple-issues-around-security-memory-cost-interoperability/' target='_blank'> 人工智慧信任差距：開發人員努力解決安全、記憶、成本和互通性等問題</a>
                 </div>
                 <div class='meta'>SiliconANGLE | 11:24</div>
             </div>
-            <div class='story-block' id='sb-5006859179' data-link='https://siliconangle.com/2026/02/21/hitting-stride-appos-ai-low-code-automation-zohoday-2026/'>
+            <div class='story-block' id='sb-6970709821' data-link='https://siliconangle.com/2026/02/21/hitting-stride-appos-ai-low-code-automation-zohoday-2026/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5006859179")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6970709821")'>★</span>
                     <a class='headline' href='https://siliconangle.com/2026/02/21/hitting-stride-appos-ai-low-code-automation-zohoday-2026/' target='_blank'> 在 ZohoDay 2026 上利用 AppOS、<span class="kw-highlight">AI</span> 和低程式碼自動化取得重大進展</a>
                 </div>
                 <div class='meta'>SiliconANGLE | 09:39</div>
             </div>
-            <div class='story-block' id='sb-5114839055' data-link='https://techcrunch.com/2026/02/22/6-days-left-to-lock-in-the-lowest-techcrunch-disrupt-2026-rates/'>
+            <div class='story-block' id='sb-2984097223' data-link='https://techcrunch.com/2026/02/22/6-days-left-to-lock-in-the-lowest-techcrunch-disrupt-2026-rates/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5114839055")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2984097223")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/22/6-days-left-to-lock-in-the-lowest-techcrunch-disrupt-2026-rates/' target='_blank'> 距離鎖定 TechCrunch Disrupt 2026 最低費率還有 6 天</a>
                 </div>
                 <div class='meta'>TechCrunch | 23:00</div>
             </div>
-            <div class='story-block' id='sb-7100061406' data-link='https://techcrunch.com/2026/02/22/the-9000-pound-monster-i-dont-want-to-give-back/'>
+            <div class='story-block' id='sb-7299901372' data-link='https://techcrunch.com/2026/02/22/the-9000-pound-monster-i-dont-want-to-give-back/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7100061406")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7299901372")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/22/the-9000-pound-monster-i-dont-want-to-give-back/' target='_blank'> 我不想歸還的9000磅重的怪物</a>
                 </div>
                 <div class='meta'>TechCrunch | 18:59</div>
             </div>
-            <div class='story-block' id='sb-7740513645' data-link='https://techcrunch.com/2026/02/22/move-over-apple-meet-the-alternative-app-stores-available-in-the-eu-and-elsewhere/'>
+            <div class='story-block' id='sb-4932851283' data-link='https://techcrunch.com/2026/02/22/move-over-apple-meet-the-alternative-app-stores-available-in-the-eu-and-elsewhere/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7740513645")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4932851283")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/22/move-over-apple-meet-the-alternative-app-stores-available-in-the-eu-and-elsewhere/' target='_blank'> 蘋果讓開：認識歐盟和其他地方的替代應用商店</a>
                 </div>
                 <div class='meta'>TechCrunch | 17:00</div>
             </div>
-            <div class='story-block' id='sb-3194119409' data-link='https://techcrunch.com/2026/02/21/sam-altman-would-like-remind-you-that-humans-use-a-lot-of-energy-too/'>
+            <div class='story-block' id='sb-4802006972' data-link='https://techcrunch.com/2026/02/21/sam-altman-would-like-remind-you-that-humans-use-a-lot-of-energy-too/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3194119409")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4802006972")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/21/sam-altman-would-like-remind-you-that-humans-use-a-lot-of-energy-too/' target='_blank'> 薩姆·奧爾特曼想提醒您，人類也消耗大量能源</a>
                 </div>
                 <div class='meta'>TechCrunch | 05:38</div>
             </div>
-            <div class='story-block' id='sb-3484737397' data-link='https://techcrunch.com/2026/02/21/wikipedia-blacklists-archive-today-after-alleged-ddos-attack/'>
+            <div class='story-block' id='sb-1211399558' data-link='https://techcrunch.com/2026/02/21/wikipedia-blacklists-archive-today-after-alleged-ddos-attack/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3484737397")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("1211399558")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/21/wikipedia-blacklists-archive-today-after-alleged-ddos-attack/' target='_blank'> 維基百科在涉嫌 DDoS 攻擊後將 Archive.today 列入黑名單</a>
                 </div>
                 <div class='meta'>TechCrunch | 04:20</div>
             </div>
-            <div class='story-block' id='sb-3931433841' data-link='https://techcrunch.com/2026/02/21/microsofts-new-gaming-ceo-vows-not-to-flood-the-ecosystem-with-endless-ai-slop/'>
+            <div class='story-block' id='sb-3508867421' data-link='https://techcrunch.com/2026/02/21/microsofts-new-gaming-ceo-vows-not-to-flood-the-ecosystem-with-endless-ai-slop/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3931433841")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3508867421")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/21/microsofts-new-gaming-ceo-vows-not-to-flood-the-ecosystem-with-endless-ai-slop/' target='_blank'> 微軟新任遊戲執行長發誓不會讓「無盡的人工智慧溢出」淹沒整個生態系統</a>
                 </div>
                 <div class='meta'>TechCrunch | 01:41</div>
             </div>
-            <div class='story-block' id='sb-7330996106' data-link='https://www.wired.com/story/at-home-sti-tests/'>
+            <div class='story-block' id='sb-4910185451' data-link='https://www.wired.com/story/at-home-sti-tests/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7330996106")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4910185451")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/at-home-sti-tests/' target='_blank'> 關於家庭性傳染感染檢測的知識：優點、缺點與建議 (2026)</a>
                 </div>
                 <div class='meta'>WIRED | 19:56</div>
             </div>
-            <div class='story-block' id='sb-4536899591' data-link='https://www.wired.com/story/what-is-down-fill-power/'>
+            <div class='story-block' id='sb-3959607805' data-link='https://www.wired.com/story/what-is-down-fill-power/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4536899591")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3959607805")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/what-is-down-fill-power/' target='_blank'> 什麼是羽絨填充力 (2026)：填充重量、合成材料</a>
                 </div>
                 <div class='meta'>WIRED | 19:30</div>
             </div>
-            <div class='story-block' id='sb-5694288139' data-link='https://www.wired.com/story/how-to-hide-google-ai-overviews-from-your-search-results/'>
+            <div class='story-block' id='sb-6490363215' data-link='https://www.wired.com/story/how-to-hide-google-ai-overviews-from-your-search-results/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5694288139")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6490363215")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/how-to-hide-google-ai-overviews-from-your-search-results/' target='_blank'> 如何從搜尋結果中隱藏 Google 的 <span class="kw-highlight">AI</span> 概述</a>
                 </div>
                 <div class='meta'>WIRED | 19:00</div>
             </div>
-            <div class='story-block' id='sb-5787859013' data-link='https://www.wired.com/story/how-to-view-the-blood-moon-total-lunar-eclipse-on-march-3/'>
+            <div class='story-block' id='sb-4204983271' data-link='https://www.wired.com/story/how-to-view-the-blood-moon-total-lunar-eclipse-on-march-3/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5787859013")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4204983271")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/how-to-view-the-blood-moon-total-lunar-eclipse-on-march-3/' target='_blank'> 如何觀看 3 月 3 日的“血月”月全食</a>
                 </div>
                 <div class='meta'>WIRED | 18:00</div>
             </div>
-            <div class='story-block' id='sb-2841343097' data-link='https://www.wired.com/story/the-best-electric-toothbrush-for-healthier-teeth-and-gums/'>
+            <div class='story-block' id='sb-8139504131' data-link='https://www.wired.com/story/the-best-electric-toothbrush-for-healthier-teeth-and-gums/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2841343097")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8139504131")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/the-best-electric-toothbrush-for-healthier-teeth-and-gums/' target='_blank'> 最佳電動牙刷，經過真實測試（2026 年）</a>
                 </div>
                 <div class='meta'>WIRED | 18:00</div>
             </div>
-            <div class='story-block' id='sb-4855843860' data-link='https://www.wired.com/story/sony-wh-ch720n-deal-february-2026/'>
+            <div class='story-block' id='sb-8993946174' data-link='https://www.wired.com/story/sony-wh-ch720n-deal-february-2026/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4855843860")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8993946174")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/sony-wh-ch720n-deal-february-2026/' target='_blank'> Sony WH-CH720N 耳機以全價提供卓越的價值，但現在它們很便宜。</a>
                 </div>
                 <div class='meta'>WIRED | 04:30</div>
             </div>
-            <div class='story-block' id='sb-2702699097' data-link='https://www.bloomberg.com/news/articles/2026-02-22/nvidia-s-stock-is-so-stuck-even-blowout-earnings-may-not-lift-it'>
+            <div class='story-block' id='sb-9831208047' data-link='https://www.bloomberg.com/news/articles/2026-02-22/nvidia-s-stock-is-so-stuck-even-blowout-earnings-may-not-lift-it'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2702699097")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("9831208047")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/articles/2026-02-22/nvidia-s-stock-is-so-stuck-even-blowout-earnings-may-not-lift-it' target='_blank'> 英偉達的股價陷入困境，即使井噴的獲利也可能無法提振它</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 22:00</div>
             </div>
-            <div class='story-block' id='sb-2625689318' data-link='https://www.bloomberg.com/news/newsletters/2026-02-22/apple-s-ai-wearables-push-what-to-expect-from-march-4-low-end-macbook-launch'>
+            <div class='story-block' id='sb-2783510898' data-link='https://www.bloomberg.com/news/newsletters/2026-02-22/apple-s-ai-wearables-push-what-to-expect-from-march-4-low-end-macbook-launch'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2625689318")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2783510898")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/newsletters/2026-02-22/apple-s-ai-wearables-push-what-to-expect-from-march-4-low-end-macbook-launch' target='_blank'> 蘋果的下一件大事是進軍視覺人工智慧</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 21:00</div>
             </div>
-            <div class='story-block' id='sb-2856264886' data-link='https://www.bloomberg.com/news/articles/2026-02-22/macron-asks-trump-to-lift-sanctions-on-european-officials'>
+            <div class='story-block' id='sb-3748522506' data-link='https://www.bloomberg.com/news/articles/2026-02-22/macron-asks-trump-to-lift-sanctions-on-european-officials'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2856264886")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3748522506")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/articles/2026-02-22/macron-asks-trump-to-lift-sanctions-on-european-officials' target='_blank'> 馬克宏要求川普解除對歐洲官員的製裁</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 17:40</div>
             </div>
-            <div class='story-block' id='sb-8978105599' data-link='https://www.bloomberg.com/news/articles/2026-02-22/china-defies-global-ai-scare-trade-as-investors-chase-winners'>
+            <div class='story-block' id='sb-7070751925' data-link='https://www.bloomberg.com/news/articles/2026-02-22/china-defies-global-ai-scare-trade-as-investors-chase-winners'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8978105599")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7070751925")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/articles/2026-02-22/china-defies-global-ai-scare-trade-as-investors-chase-winners' target='_blank'> 投資者追逐贏家，中國挑戰全球“人工智慧恐慌貿易”</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 08:00</div>
             </div>
-            <div class='story-block' id='sb-7715838646' data-link='https://www.bloomberg.com/news/articles/2026-02-21/doj-probes-netflix-s-power-over-filmmakers-in-warner-deal-review'>
+            <div class='story-block' id='sb-7097612017' data-link='https://www.bloomberg.com/news/articles/2026-02-21/doj-probes-netflix-s-power-over-filmmakers-in-warner-deal-review'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7715838646")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7097612017")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/articles/2026-02-21/doj-probes-netflix-s-power-over-filmmakers-in-warner-deal-review' target='_blank'> 美國司法部在華納交易審查中調查 Netflix 對電影製片人的影響力</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 07:31</div>
             </div>
-            <div class='story-block' id='sb-1491227704' data-link='https://arstechnica.com/space/2026/02/study-shows-how-rocket-launches-pollute-the-atmosphere/'>
+            <div class='story-block' id='sb-5883406141' data-link='https://arstechnica.com/space/2026/02/study-shows-how-rocket-launches-pollute-the-atmosphere/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1491227704")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5883406141")'>★</span>
                     <a class='headline' href='https://arstechnica.com/space/2026/02/study-shows-how-rocket-launches-pollute-the-atmosphere/' target='_blank'> 研究顯示火箭發射如何污染大氣</a>
                 </div>
                 <div class='meta'>Ars Technica | 19:20</div>
             </div>
-            <div class='story-block' id='sb-1097682164' data-link='https://9to5google.com/2026/02/22/zerocam-2-android-update-colors-lens-support/'>
+            <div class='story-block' id='sb-2636888434' data-link='https://9to5google.com/2026/02/22/zerocam-2-android-update-colors-lens-support/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1097682164")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2636888434")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/22/zerocam-2-android-update-colors-lens-support/' target='_blank'> 適用於 Android 的 Zerocam 2.0 仍然消除了過度處理，但現在具有顏色配置文件和鏡頭支援 [圖庫]</a>
                 </div>
                 <div class='meta'>9to5Google | 23:30</div>
             </div>
-            <div class='story-block' id='sb-3906620126' data-link='https://9to5google.com/2026/02/22/samsung-galaxy-s26-perplexity-integration/'>
+            <div class='story-block' id='sb-1668903613' data-link='https://9to5google.com/2026/02/22/samsung-galaxy-s26-perplexity-integration/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3906620126")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("1668903613")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/22/samsung-galaxy-s26-perplexity-integration/' target='_blank'> Galaxy S26 將有一個「Hey Plex」困惑熱詞以及「Hey Google」和 Bixby</a>
                 </div>
                 <div class='meta'>9to5Google | 21:00</div>
             </div>
-            <div class='story-block' id='sb-6552953924' data-link='https://9to5google.com/2026/02/21/galaxy-s26-ultra-battery-life-charging-seem-unchanged-in-leaked-promo-gallery/'>
+            <div class='story-block' id='sb-4431201157' data-link='https://9to5google.com/2026/02/21/galaxy-s26-ultra-battery-life-charging-seem-unchanged-in-leaked-promo-gallery/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6552953924")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4431201157")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/21/galaxy-s26-ultra-battery-life-charging-seem-unchanged-in-leaked-promo-gallery/' target='_blank'> Galaxy S26 Ultra 的電池壽命和充電在洩漏的促銷中似乎沒有變化 [圖庫]</a>
                 </div>
                 <div class='meta'>9to5Google | 10:10</div>
             </div>
-            <div class='story-block' id='sb-8562515772' data-link='https://9to5google.com/2026/02/21/chrome-address-bar-ai-mode/'>
+            <div class='story-block' id='sb-1648620096' data-link='https://9to5google.com/2026/02/21/chrome-address-bar-ai-mode/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8562515772")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("1648620096")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/21/chrome-address-bar-ai-mode/' target='_blank'> Google為 Chrome 網址列帶來完整的 <span class="kw-highlight">AI</span> 模式提示框</a>
                 </div>
                 <div class='meta'>9to5Google | 04:58</div>
             </div>
-            <div class='story-block' id='sb-6272033614' data-link='https://9to5google.com/2026/02/21/google-ai-pro-ultra-features/'>
+            <div class='story-block' id='sb-6285026642' data-link='https://9to5google.com/2026/02/21/google-ai-pro-ultra-features/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6272033614")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6285026642")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/21/google-ai-pro-ultra-features/' target='_blank'> Google <span class="kw-highlight">AI</span> Plus、Pro 和 Ultra 可提供哪些 Gemini 功能 [2026 年 2 月]</a>
                 </div>
                 <div class='meta'>9to5Google | 04:23</div>
             </div>
-            <div class='story-block' id='sb-5697914925' data-link='https://www.bleepingcomputer.com/news/security/arkanix-stealer-pops-up-as-short-lived-ai-info-stealer-experiment/'>
+            <div class='story-block' id='sb-7027567832' data-link='https://www.bleepingcomputer.com/news/security/arkanix-stealer-pops-up-as-short-lived-ai-info-stealer-experiment/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5697914925")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7027567832")'>★</span>
                     <a class='headline' href='https://www.bleepingcomputer.com/news/security/arkanix-stealer-pops-up-as-short-lived-ai-info-stealer-experiment/' target='_blank'>[資安] Arkanix Stealer 作為短暫的人工智慧資訊竊取實驗出現</a>
                 </div>
                 <div class='meta'>BleepingComputer | 23:33</div>
             </div>
-            <div class='story-block' id='sb-3343855024' data-link='https://www.bleepingcomputer.com/news/security/predator-spyware-hooks-ios-springboard-to-hide-mic-camera-activity/'>
+            <div class='story-block' id='sb-3349539670' data-link='https://www.bleepingcomputer.com/news/security/predator-spyware-hooks-ios-springboard-to-hide-mic-camera-activity/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3343855024")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3349539670")'>★</span>
                     <a class='headline' href='https://www.bleepingcomputer.com/news/security/predator-spyware-hooks-ios-springboard-to-hide-mic-camera-activity/' target='_blank'>[資安] Predator 間諜軟體掛鉤 iOS SpringBoard 來隱藏麥克風、攝影機活動</a>
                 </div>
                 <div class='meta'>BleepingComputer | 00:13</div>
             </div>
-            <div class='story-block' id='sb-5340560930' data-link='https://thenewstack.io/cloudflares-markdown-for-agents-automatically-make-websites-more-aifriendly/'>
+            <div class='story-block' id='sb-6443793030' data-link='https://thenewstack.io/cloudflares-markdown-for-agents-automatically-make-websites-more-aifriendly/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5340560930")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6443793030")'>★</span>
                     <a class='headline' href='https://thenewstack.io/cloudflares-markdown-for-agents-automatically-make-websites-more-aifriendly/' target='_blank'> Cloudflare 的 Markdown for Agents 會自動讓網站為代理商做好準備</a>
                 </div>
                 <div class='meta'>The New Stack | 23:00</div>
             </div>
-            <div class='story-block' id='sb-4276481707' data-link='https://thenewstack.io/wasm-vs-javascript-who-wins-at-a-million-rows/'>
+            <div class='story-block' id='sb-7671126307' data-link='https://thenewstack.io/wasm-vs-javascript-who-wins-at-a-million-rows/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4276481707")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7671126307")'>★</span>
                     <a class='headline' href='https://thenewstack.io/wasm-vs-javascript-who-wins-at-a-million-rows/' target='_blank'> Wasm 與 JavaScript：誰在百萬行中獲勝？</a>
                 </div>
                 <div class='meta'>The New Stack | 22:00</div>
             </div><div class='date-header'>2026-02-21</div>
-            <div class='story-block' id='sb-7279269964' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/21/head/'>
+            <div class='story-block' id='sb-6924506602' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/21/head/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7279269964")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6924506602")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/21/head/' target='_blank'> 政府升級無人機，部署操縱桿調整器來抓捕非法傾倒者</a>
                 </div>
                 <div class='meta'>The Register | 19:03</div>
             </div>
-            <div class='story-block' id='sb-8162381985' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/21/ofcom_q3_2025_complaints/'>
+            <div class='story-block' id='sb-6856867247' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/21/ofcom_q3_2025_complaints/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8162381985")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6856867247")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/21/ofcom_q3_2025_complaints/' target='_blank'> Ofcom 的 EE、TalkTalk 和沃達豐抱怨計亮起</a>
                 </div>
                 <div class='meta'>The Register | 16:27</div>
             </div>
-            <div class='story-block' id='sb-2455121944' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/21/serpapi_google_scraping_lawsuit/'>
+            <div class='story-block' id='sb-1957608384' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/21/serpapi_google_scraping_lawsuit/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2455121944")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("1957608384")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/21/serpapi_google_scraping_lawsuit/' target='_blank'> SerpApi 表示，在抓取方面，Google是“黑鍋”</a>
                 </div>
                 <div class='meta'>The Register | 08:56</div>
             </div>
-            <div class='story-block' id='sb-5206189457' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/raspberry_pi_meme_stock_disorder/'>
+            <div class='story-block' id='sb-3015005216' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/raspberry_pi_meme_stock_disorder/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5206189457")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3015005216")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/20/raspberry_pi_meme_stock_disorder/' target='_blank'> 使用 Raspberry Pi 來運行 OpenClaw 的想法毫無意義</a>
                 </div>
                 <div class='meta'>The Register | 07:31</div>
             </div>
-            <div class='story-block' id='sb-3198421374' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/paypal_app_code_error_leak/'>
+            <div class='story-block' id='sb-8166915404' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/paypal_app_code_error_leak/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3198421374")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8166915404")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/20/paypal_app_code_error_leak/' target='_blank'> PayPal 應用程式代碼錯誤洩露了個人資訊和「一些」未經授權的交易</a>
                 </div>
                 <div class='meta'>The Register | 06:10</div>
             </div>
-            <div class='story-block' id='sb-3044994103' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access/'>
+            <div class='story-block' id='sb-3565272146' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3044994103")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3565272146")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access/' target='_blank'> Anthropic：不，絕對不，你不能將第三方安全帶與克勞德潛艇一起使用</a>
                 </div>
                 <div class='meta'>The Register | 05:54</div>
             </div>
-            <div class='story-block' id='sb-9147382781' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/spacex_falcon_europe_breakup_lithium_plume/'>
+            <div class='story-block' id='sb-5893657722' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/spacex_falcon_europe_breakup_lithium_plume/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("9147382781")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5893657722")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/20/spacex_falcon_europe_breakup_lithium_plume/' target='_blank'> 科學家表示，SpaceX 的「獵鷹號」故障火箭在歐洲上空噴出了大量鋰羽流</a>
                 </div>
                 <div class='meta'>The Register | 03:55</div>
             </div>
-            <div class='story-block' id='sb-5439889542' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/india_ai_supercomputer_cerebras_uae/'>
+            <div class='story-block' id='sb-7250224053' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/india_ai_supercomputer_cerebras_uae/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5439889542")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7250224053")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/20/india_ai_supercomputer_cerebras_uae/' target='_blank'> Cerebras 計劃在阿聯酋支持下在印度建造巨型人工智慧超級計算機</a>
                 </div>
                 <div class='meta'>The Register | 03:32</div>
             </div>
-            <div class='story-block' id='sb-3721019238' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/shinyhunters_wynn_resorts/'>
+            <div class='story-block' id='sb-6750144178' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/shinyhunters_wynn_resorts/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3721019238")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6750144178")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/20/shinyhunters_wynn_resorts/' target='_blank'> ShinyHunters 要求 150 萬美元不要洩漏維加斯賭場和度假村連鎖資料</a>
                 </div>
                 <div class='meta'>The Register | 02:27</div>
             </div>
-            <div class='story-block' id='sb-6175783407' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/amazon_denies_kiro_agentic_ai_behind_outage/'>
+            <div class='story-block' id='sb-3192654785' data-link='https://go.theregister.com/feed/www.theregister.com/2026/02/20/amazon_denies_kiro_agentic_ai_behind_outage/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6175783407")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3192654785")'>★</span>
                     <a class='headline' href='https://go.theregister.com/feed/www.theregister.com/2026/02/20/amazon_denies_kiro_agentic_ai_behind_outage/' target='_blank'> 據報道，亞馬遜的振動編碼工具 Kiro 振動太厲害，導致 AWS 癱瘓</a>
                 </div>
                 <div class='meta'>The Register | 01:52</div>
             </div>
-            <div class='story-block' id='sb-5972562487' data-link='https://siliconangle.com/2026/02/20/google-reportedly-invest-100m-ai-cloud-operator-fluidstack/'>
+            <div class='story-block' id='sb-6796301306' data-link='https://siliconangle.com/2026/02/20/google-reportedly-invest-100m-ai-cloud-operator-fluidstack/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5972562487")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6796301306")'>★</span>
                     <a class='headline' href='https://siliconangle.com/2026/02/20/google-reportedly-invest-100m-ai-cloud-operator-fluidstack/' target='_blank'> 據報道，Google可能會向人工智慧<span class="kw-highlight">雲端</span>營運商 Fluidstack 投資 1 億美元</a>
                 </div>
                 <div class='meta'>SiliconANGLE | 09:34</div>
             </div>
-            <div class='story-block' id='sb-8250780770' data-link='https://siliconangle.com/2026/02/20/cybersecurity-stocks-drop-anthropic-debuts-claude-code-security/'>
+            <div class='story-block' id='sb-3452355392' data-link='https://siliconangle.com/2026/02/20/cybersecurity-stocks-drop-anthropic-debuts-claude-code-security/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8250780770")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3452355392")'>★</span>
                     <a class='headline' href='https://siliconangle.com/2026/02/20/cybersecurity-stocks-drop-anthropic-debuts-claude-code-security/' target='_blank'> Anthropic 首次亮相後網路安全股票下跌 Claude Code Security</a>
                 </div>
                 <div class='meta'>SiliconANGLE | 07:45</div>
             </div>
-            <div class='story-block' id='sb-4564929985' data-link='https://siliconangle.com/2026/02/20/ai-code-translation-startup-code-metal-reels-125m-1-25b-valuation/'>
+            <div class='story-block' id='sb-5883765778' data-link='https://siliconangle.com/2026/02/20/ai-code-translation-startup-code-metal-reels-125m-1-25b-valuation/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4564929985")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5883765778")'>★</span>
                     <a class='headline' href='https://siliconangle.com/2026/02/20/ai-code-translation-startup-code-metal-reels-125m-1-25b-valuation/' target='_blank'> 人工智慧代碼翻譯新創公司 Code Metal 估值 1.25 億美元，估值 1.25 億美元</a>
                 </div>
                 <div class='meta'>SiliconANGLE | 05:29</div>
             </div>
-            <div class='story-block' id='sb-6727639281' data-link='https://siliconangle.com/2026/02/20/vast-reshaes-data-infrastructure-agentic-ai-vastforward/'>
+            <div class='story-block' id='sb-8283998680' data-link='https://siliconangle.com/2026/02/20/vast-reshaes-data-infrastructure-agentic-ai-vastforward/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6727639281")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8283998680")'>★</span>
                     <a class='headline' href='https://siliconangle.com/2026/02/20/vast-reshaes-data-infrastructure-agentic-ai-vastforward/' target='_blank'> 吞噬管道的平台：海量資料對人工智慧基礎設施的重新思考</a>
                 </div>
                 <div class='meta'>SiliconANGLE | 02:40</div>
             </div>
-            <div class='story-block' id='sb-1440191826' data-link='https://siliconangle.com/2026/02/20/real-time-voice-ai-harder-sounds/'>
+            <div class='story-block' id='sb-4741111173' data-link='https://techcrunch.com/2026/02/21/openai-debated-calling-police-about-suspected-canadian-shooters-chats/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1440191826")'>★</span>
-                    <a class='headline' href='https://siliconangle.com/2026/02/20/real-time-voice-ai-harder-sounds/' target='_blank'> 為什麼即時語音人工智慧比聽起來更難</a>
-                </div>
-                <div class='meta'>SiliconANGLE | 00:47</div>
-            </div>
-            <div class='story-block' id='sb-6302955107' data-link='https://techcrunch.com/2026/02/21/openai-debated-calling-police-about-suspected-canadian-shooters-chats/'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6302955107")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4741111173")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/21/openai-debated-calling-police-about-suspected-canadian-shooters-chats/' target='_blank'> Open<span class="kw-highlight">AI</span> 討論就加拿大槍擊嫌疑人的聊天記錄向警方報警</a>
                 </div>
                 <div class='meta'>TechCrunch | 23:25</div>
             </div>
-            <div class='story-block' id='sb-6428226027' data-link='https://techcrunch.com/2026/02/20/remember-hq-quiz-daddy-scott-rogowsky-is-back-with-textsavvy-a-daily-mobile-game-show/'>
+            <div class='story-block' id='sb-3650612000' data-link='https://techcrunch.com/2026/02/20/remember-hq-quiz-daddy-scott-rogowsky-is-back-with-textsavvy-a-daily-mobile-game-show/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6428226027")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3650612000")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/20/remember-hq-quiz-daddy-scott-rogowsky-is-back-with-textsavvy-a-daily-mobile-game-show/' target='_blank'> 還記得總部嗎？《測驗爸爸》斯科特·羅戈夫斯基帶著每日手機遊戲節目 TextSavvy 回歸</a>
                 </div>
                 <div class='meta'>TechCrunch | 05:00</div>
             </div>
-            <div class='story-block' id='sb-3023614240' data-link='https://techcrunch.com/2026/02/20/anthropic-funded-group-backs-candidate-attacked-by-rival-ai-super-pac/'>
+            <div class='story-block' id='sb-6307589234' data-link='https://techcrunch.com/2026/02/20/anthropic-funded-group-backs-candidate-attacked-by-rival-ai-super-pac/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3023614240")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6307589234")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/20/anthropic-funded-group-backs-candidate-attacked-by-rival-ai-super-pac/' target='_blank'> 人類資助的組織支持遭到競爭對手人工智慧超級政治行動委員會攻擊的候選人</a>
                 </div>
                 <div class='meta'>TechCrunch | 04:52</div>
             </div>
-            <div class='story-block' id='sb-9027279700' data-link='https://techcrunch.com/2026/02/20/apples-ios-26-4-arrives-in-public-beta-with-ai-music-playlists-video-podcasts-and-more/'>
+            <div class='story-block' id='sb-4811208188' data-link='https://techcrunch.com/2026/02/20/apples-ios-26-4-arrives-in-public-beta-with-ai-music-playlists-video-podcasts-and-more/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("9027279700")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4811208188")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/20/apples-ios-26-4-arrives-in-public-beta-with-ai-music-playlists-video-podcasts-and-more/' target='_blank'> Apple 的 iOS 26.4 推出公開測試版，提供 <span class="kw-highlight">AI</span> 音樂播放清單、影片播客等</a>
                 </div>
                 <div class='meta'>TechCrunch | 03:44</div>
             </div>
-            <div class='story-block' id='sb-6529525596' data-link='https://techcrunch.com/2026/02/20/inscope-nabs-14-5m-to-solve-the-pain-of-financial-reporting/'>
+            <div class='story-block' id='sb-2009152710' data-link='https://techcrunch.com/2026/02/20/inscope-nabs-14-5m-to-solve-the-pain-of-financial-reporting/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6529525596")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2009152710")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/20/inscope-nabs-14-5m-to-solve-the-pain-of-financial-reporting/' target='_blank'> InScope 獲得 1,450 萬美元解決財務報告難題</a>
                 </div>
                 <div class='meta'>TechCrunch | 03:24</div>
             </div>
-            <div class='story-block' id='sb-7847146059' data-link='https://techcrunch.com/2026/02/20/great-news-for-xai-grok-is-now-pretty-good-at-answering-questions-about-baldurs-gate/'>
+            <div class='story-block' id='sb-7297906220' data-link='https://techcrunch.com/2026/02/20/great-news-for-xai-grok-is-now-pretty-good-at-answering-questions-about-baldurs-gate/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7847146059")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7297906220")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/20/great-news-for-xai-grok-is-now-pretty-good-at-answering-questions-about-baldurs-gate/' target='_blank'> x<span class="kw-highlight">AI</span> 的好消息：Grok 現在非常擅長回答有關博德之門的問題</a>
                 </div>
                 <div class='meta'>TechCrunch | 02:26</div>
             </div>
-            <div class='story-block' id='sb-8431552614' data-link='https://techcrunch.com/2026/02/20/ukrainian-man-jailed-for-identity-theft-that-helped-north-koreans-get-jobs-at-us-companies/'>
+            <div class='story-block' id='sb-3489130905' data-link='https://techcrunch.com/2026/02/20/ukrainian-man-jailed-for-identity-theft-that-helped-north-koreans-get-jobs-at-us-companies/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8431552614")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3489130905")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/20/ukrainian-man-jailed-for-identity-theft-that-helped-north-koreans-get-jobs-at-us-companies/' target='_blank'> 烏克蘭男子因身份盜竊幫助北韓人在美國公司找到工作而被判入獄</a>
                 </div>
                 <div class='meta'>TechCrunch | 01:38</div>
             </div>
-            <div class='story-block' id='sb-7034938135' data-link='https://techcrunch.com/2026/02/20/tesla-loses-bid-to-overturn-243m-autopilot-verdict/'>
+            <div class='story-block' id='sb-4148535429' data-link='https://techcrunch.com/2026/02/20/tesla-loses-bid-to-overturn-243m-autopilot-verdict/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7034938135")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4148535429")'>★</span>
                     <a class='headline' href='https://techcrunch.com/2026/02/20/tesla-loses-bid-to-overturn-243m-autopilot-verdict/' target='_blank'> 特斯拉未能推翻價值 2.43 億美元的 Autopilot 判決</a>
                 </div>
                 <div class='meta'>TechCrunch | 01:37</div>
             </div>
-            <div class='story-block' id='sb-3737435783' data-link='https://techcrunch.com/2026/02/20/threads-posts-can-now-be-shared-directly-to-your-instagram-story-without-leaving-the-app/'>
+            <div class='story-block' id='sb-9218683602' data-link='https://www.wired.com/story/gear-from-the-2026-winter-olympics-is-being-resold-for-big-bucks-online/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3737435783")'>★</span>
-                    <a class='headline' href='https://techcrunch.com/2026/02/20/threads-posts-can-now-be-shared-directly-to-your-instagram-story-without-leaving-the-app/' target='_blank'> 現在無需離開應用程式即可將主題貼文直接分享到您的 Instagram 快拍</a>
-                </div>
-                <div class='meta'>TechCrunch | 00:55</div>
-            </div>
-            <div class='story-block' id='sb-3794582155' data-link='https://www.wired.com/story/gear-from-the-2026-winter-olympics-is-being-resold-for-big-bucks-online/'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3794582155")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("9218683602")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/gear-from-the-2026-winter-olympics-is-being-resold-for-big-bucks-online/' target='_blank'> 2026 年冬奧紀念品在網路上轉售高價</a>
                 </div>
                 <div class='meta'>WIRED | 20:00</div>
             </div>
-            <div class='story-block' id='sb-3046436415' data-link='https://www.wired.com/gallery/best-headphone-jack-phones/'>
+            <div class='story-block' id='sb-8951738766' data-link='https://www.wired.com/gallery/best-headphone-jack-phones/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3046436415")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8951738766")'>★</span>
                     <a class='headline' href='https://www.wired.com/gallery/best-headphone-jack-phones/' target='_blank'> 經過測試和評測的 6 款帶耳機插孔的最佳手機（2026 年）</a>
                 </div>
                 <div class='meta'>WIRED | 20:00</div>
             </div>
-            <div class='story-block' id='sb-6123236368' data-link='https://www.wired.com/story/best-budget-monitors/'>
+            <div class='story-block' id='sb-2134874462' data-link='https://www.wired.com/story/best-budget-monitors/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6123236368")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2134874462")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/best-budget-monitors/' target='_blank'> 最佳預算顯示器：我發現 3 款低於 200 美元的令人印象深刻的螢幕（2026 年）</a>
                 </div>
                 <div class='meta'>WIRED | 20:00</div>
             </div>
-            <div class='story-block' id='sb-3249161108' data-link='https://www.wired.com/story/security-news-this-week-password-managers-share-a-hidden-weakness/'>
+            <div class='story-block' id='sb-2640583912' data-link='https://www.wired.com/story/security-news-this-week-password-managers-share-a-hidden-weakness/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3249161108")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2640583912")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/security-news-this-week-password-managers-share-a-hidden-weakness/' target='_blank'> 密碼管理器都有一個隱藏的弱點</a>
                 </div>
                 <div class='meta'>WIRED | 19:30</div>
             </div>
-            <div class='story-block' id='sb-6877840067' data-link='https://www.wired.com/story/install-and-update-microsoft-store-apps-using-the-command-line-in-windows/'>
+            <div class='story-block' id='sb-6881222004' data-link='https://www.wired.com/story/install-and-update-microsoft-store-apps-using-the-command-line-in-windows/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6877840067")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6881222004")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/install-and-update-microsoft-store-apps-using-the-command-line-in-windows/' target='_blank'> 現在您可以使用命令列安裝和更新 Microsoft Store 應用程式</a>
                 </div>
                 <div class='meta'>WIRED | 19:00</div>
             </div>
-            <div class='story-block' id='sb-7297004011' data-link='https://www.wired.com/review/irestore-elite-laser-hair-growth-system/'>
+            <div class='story-block' id='sb-8384363690' data-link='https://www.wired.com/review/irestore-elite-laser-hair-growth-system/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7297004011")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8384363690")'>★</span>
                     <a class='headline' href='https://www.wired.com/review/irestore-elite-laser-hair-growth-system/' target='_blank'> iRestore Elite 雷射生髮系統評論：出奇的有效</a>
                 </div>
                 <div class='meta'>WIRED | 18:30</div>
             </div>
-            <div class='story-block' id='sb-6122618770' data-link='https://www.wired.com/story/narco-submarine-carrying-4-tons-of-cocaine-captured-by-mexicos-navy/'>
+            <div class='story-block' id='sb-6733087021' data-link='https://www.wired.com/story/narco-submarine-carrying-4-tons-of-cocaine-captured-by-mexicos-navy/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6122618770")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6733087021")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/narco-submarine-carrying-4-tons-of-cocaine-captured-by-mexicos-navy/' target='_blank'> 墨西哥海軍繳獲載有4噸可卡因的“緝毒潛艇”</a>
                 </div>
                 <div class='meta'>WIRED | 18:00</div>
             </div>
-            <div class='story-block' id='sb-6714564242' data-link='https://www.wired.com/story/trump-imposes-new-tariffs-following-supreme-court-ruling/'>
+            <div class='story-block' id='sb-5999323830' data-link='https://www.wired.com/story/trump-imposes-new-tariffs-following-supreme-court-ruling/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6714564242")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5999323830")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/trump-imposes-new-tariffs-following-supreme-court-ruling/' target='_blank'> 川普徵收新關稅以避免最高法院裁決</a>
                 </div>
                 <div class='meta'>WIRED | 10:55</div>
             </div>
-            <div class='story-block' id='sb-6491917736' data-link='https://www.wired.com/story/the-supreme-courts-tariff-ruling-wont-bring-car-prices-back-to-earth/'>
+            <div class='story-block' id='sb-2675968502' data-link='https://www.wired.com/story/the-supreme-courts-tariff-ruling-wont-bring-car-prices-back-to-earth/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6491917736")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2675968502")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/the-supreme-courts-tariff-ruling-wont-bring-car-prices-back-to-earth/' target='_blank'> 最高法院的關稅裁決不會讓汽車價格回歸正常水平</a>
                 </div>
                 <div class='meta'>WIRED | 08:10</div>
             </div>
-            <div class='story-block' id='sb-8710680406' data-link='https://www.wired.com/story/a-galaxy-composed-almost-entirely-of-dark-matter-has-been-confirmed/'>
+            <div class='story-block' id='sb-3827133794' data-link='https://www.wired.com/story/a-galaxy-composed-almost-entirely-of-dark-matter-has-been-confirmed/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8710680406")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3827133794")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/a-galaxy-composed-almost-entirely-of-dark-matter-has-been-confirmed/' target='_blank'> 幾乎完全由暗物質組成的星系已被證實</a>
                 </div>
                 <div class='meta'>WIRED | 07:58</div>
             </div>
-            <div class='story-block' id='sb-6510272479' data-link='https://www.wired.com/story/government-docs-reveal-new-details-about-tesla-and-waymo-robotaxi-programs/'>
+            <div class='story-block' id='sb-6554632535' data-link='https://www.wired.com/story/government-docs-reveal-new-details-about-tesla-and-waymo-robotaxi-programs/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6510272479")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6554632535")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/government-docs-reveal-new-details-about-tesla-and-waymo-robotaxi-programs/' target='_blank'> 政府文件披露了有關 Tesla 和 Waymo Robotaxis 人類保姆的新細節</a>
                 </div>
                 <div class='meta'>WIRED | 05:53</div>
             </div>
-            <div class='story-block' id='sb-6445735617' data-link='https://www.wired.com/story/they-bet-against-trumps-tariffs-now-they-stand-to-make-millions/'>
+            <div class='story-block' id='sb-4700932919' data-link='https://www.wired.com/story/they-bet-against-trumps-tariffs-now-they-stand-to-make-millions/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6445735617")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4700932919")'>★</span>
                     <a class='headline' href='https://www.wired.com/story/they-bet-against-trumps-tariffs-now-they-stand-to-make-millions/' target='_blank'> 他們押注反對川普的關稅。現在他們有望賺到數百萬美元</a>
                 </div>
                 <div class='meta'>WIRED | 05:05</div>
             </div>
-            <div class='story-block' id='sb-1573825341' data-link='https://www.bloomberg.com/news/articles/2026-02-21/merz-s-cdu-calls-for-age-restrictions-on-social-media-networks'>
+            <div class='story-block' id='sb-6494077111' data-link='https://www.bloomberg.com/news/articles/2026-02-21/merz-s-cdu-calls-for-age-restrictions-on-social-media-networks'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1573825341")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6494077111")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/articles/2026-02-21/merz-s-cdu-calls-for-age-restrictions-on-social-media-networks' target='_blank'> 梅爾茨的基民盟呼籲對社群媒體網路進行年齡限制</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 23:35</div>
             </div>
-            <div class='story-block' id='sb-2653245250' data-link='https://www.bloomberg.com/news/videos/2026-02-21/how-ai-could-freeze-progress-masters-in-business-video'>
+            <div class='story-block' id='sb-8180859794' data-link='https://www.bloomberg.com/news/videos/2026-02-21/how-ai-could-freeze-progress-masters-in-business-video'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2653245250")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8180859794")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/videos/2026-02-21/how-ai-could-freeze-progress-masters-in-business-video' target='_blank'> 人工智慧如何凍結進步：希拉蕊·艾倫的商業碩士</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 18:14</div>
             </div>
-            <div class='story-block' id='sb-1334211621' data-link='https://www.bloomberg.com/news/articles/2026-02-21/russia-s-fsb-says-ukraine-can-tap-front-line-data-via-telegram'>
+            <div class='story-block' id='sb-7459429468' data-link='https://www.bloomberg.com/news/articles/2026-02-21/russia-s-fsb-says-ukraine-can-tap-front-line-data-via-telegram'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1334211621")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7459429468")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/articles/2026-02-21/russia-s-fsb-says-ukraine-can-tap-front-line-data-via-telegram' target='_blank'> 俄羅斯聯邦安全局表示烏克蘭可以透過 Telegram 取得前線資料</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 15:05</div>
             </div>
-            <div class='story-block' id='sb-2751749878' data-link='https://www.bloomberg.com/news/articles/2026-02-21/openai-flagged-canada-suspect-eight-months-before-mass-shooting'>
+            <div class='story-block' id='sb-1699868684' data-link='https://www.bloomberg.com/news/articles/2026-02-21/openai-flagged-canada-suspect-eight-months-before-mass-shooting'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2751749878")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("1699868684")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/articles/2026-02-21/openai-flagged-canada-suspect-eight-months-before-mass-shooting' target='_blank'> Open<span class="kw-highlight">AI</span> 在大規模槍擊事件發生前八個月標記了加拿大嫌疑人</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 08:30</div>
             </div>
-            <div class='story-block' id='sb-5682845480' data-link='https://www.bloomberg.com/news/videos/2026-02-21/the-close-2-20-2026-video'>
+            <div class='story-block' id='sb-3415336364' data-link='https://www.bloomberg.com/news/videos/2026-02-21/the-close-2-20-2026-video'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5682845480")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3415336364")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/videos/2026-02-21/the-close-2-20-2026-video' target='_blank'> 法院阻止關稅，股市上漲；產量攀升|收盤價 2026 年 2 月 20 日</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 08:18</div>
             </div>
-            <div class='story-block' id='sb-3330630152' data-link='https://www.bloomberg.com/news/videos/2026-02-20/akamai-ceo-our-security-services-not-disrupted-by-ai-video'>
+            <div class='story-block' id='sb-3411833532' data-link='https://www.bloomberg.com/news/videos/2026-02-20/akamai-ceo-our-security-services-not-disrupted-by-ai-video'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3330630152")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3411833532")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/videos/2026-02-20/akamai-ceo-our-security-services-not-disrupted-by-ai-video' target='_blank'> Akam<span class="kw-highlight">ai</span> 執行長：我們的安全服務不會受到人工智慧的干擾</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 07:47</div>
             </div>
-            <div class='story-block' id='sb-2839700642' data-link='https://www.bloomberg.com/news/articles/2026-02-21/wikipedia-founder-sees-no-threat-from-musk-s-grokipedia'>
+            <div class='story-block' id='sb-2813460645' data-link='https://www.bloomberg.com/news/articles/2026-02-21/wikipedia-founder-sees-no-threat-from-musk-s-grokipedia'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2839700642")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2813460645")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/articles/2026-02-21/wikipedia-founder-sees-no-threat-from-musk-s-grokipedia' target='_blank'> 維基百科創辦人認為馬斯克的 Grokipedia 不會構成威脅</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 08:00</div>
             </div>
-            <div class='story-block' id='sb-7851853473' data-link='https://www.bloomberg.com/news/videos/2026-02-20/ai-investor-matt-shumer-on-viral-essay-on-ai-risks-video'>
+            <div class='story-block' id='sb-6469794846' data-link='https://www.bloomberg.com/news/videos/2026-02-20/ai-investor-matt-shumer-on-viral-essay-on-ai-risks-video'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7851853473")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6469794846")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/videos/2026-02-20/ai-investor-matt-shumer-on-viral-essay-on-ai-risks-video' target='_blank'> 人工智慧投資者 Matt Shumer 關於人工智慧風險的病毒式文章</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 07:35</div>
             </div>
-            <div class='story-block' id='sb-3257918551' data-link='https://www.bloomberg.com/news/articles/2026-02-20/openai-forecasts-its-revenue-will-top-280-billion-in-2030'>
+            <div class='story-block' id='sb-5527870755' data-link='https://www.bloomberg.com/news/articles/2026-02-20/openai-forecasts-its-revenue-will-top-280-billion-in-2030'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3257918551")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5527870755")'>★</span>
                     <a class='headline' href='https://www.bloomberg.com/news/articles/2026-02-20/openai-forecasts-its-revenue-will-top-280-billion-in-2030' target='_blank'> Open<span class="kw-highlight">AI</span> 預測 2030 年營收將突破 2,800 億美元</a>
                 </div>
                 <div class='meta'>Bloomberg Technolo | 07:07</div>
             </div>
-            <div class='story-block' id='sb-8202427791' data-link='https://arstechnica.com/science/2026/02/dinosaur-eggshells-can-reveal-the-age-of-other-fossils/'>
+            <div class='story-block' id='sb-5779786878' data-link='https://arstechnica.com/science/2026/02/dinosaur-eggshells-can-reveal-the-age-of-other-fossils/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8202427791")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5779786878")'>★</span>
                     <a class='headline' href='https://arstechnica.com/science/2026/02/dinosaur-eggshells-can-reveal-the-age-of-other-fossils/' target='_blank'> 恐龍蛋殼可以揭示其他化石的年齡</a>
                 </div>
                 <div class='meta'>Ars Technica | 21:00</div>
             </div>
-            <div class='story-block' id='sb-4928406246' data-link='https://arstechnica.com/science/2026/02/major-government-research-lab-appears-to-be-squeezing-out-foreign-scientists/'>
+            <div class='story-block' id='sb-3644715081' data-link='https://arstechnica.com/science/2026/02/have-we-leapt-into-commercial-genetic-testing-without-understanding-it/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4928406246")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3644715081")'>★</span>
+                    <a class='headline' href='https://arstechnica.com/science/2026/02/have-we-leapt-into-commercial-genetic-testing-without-understanding-it/' target='_blank'> 我們是否在不了解它的情況下就跳入了商業基因測試？</a>
+                </div>
+                <div class='meta'>Ars Technica | 20:00</div>
+            </div>
+            <div class='story-block' id='sb-6883289008' data-link='https://arstechnica.com/science/2026/02/major-government-research-lab-appears-to-be-squeezing-out-foreign-scientists/'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("6883289008")'>★</span>
                     <a class='headline' href='https://arstechnica.com/science/2026/02/major-government-research-lab-appears-to-be-squeezing-out-foreign-scientists/' target='_blank'> 主要政府研究實驗室似乎正在排擠外國科學家</a>
                 </div>
                 <div class='meta'>Ars Technica | 19:31</div>
             </div>
-            <div class='story-block' id='sb-1601650828' data-link='https://arstechnica.com/gaming/2026/02/microsoft-gaming-chief-phil-spencer-steps-down-after-38-years-with-company/'>
+            <div class='story-block' id='sb-5227773327' data-link='https://arstechnica.com/gaming/2026/02/microsoft-gaming-chief-phil-spencer-steps-down-after-38-years-with-company/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1601650828")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5227773327")'>★</span>
                     <a class='headline' href='https://arstechnica.com/gaming/2026/02/microsoft-gaming-chief-phil-spencer-steps-down-after-38-years-with-company/' target='_blank'> 微軟遊戲業務主管菲爾·斯賓塞 (Phil Spencer) 在任職 38 年後辭職</a>
                 </div>
                 <div class='meta'>Ars Technica | 07:28</div>
             </div>
-            <div class='story-block' id='sb-3243233682' data-link='https://arstechnica.com/tech-policy/2026/02/fcc-asks-stations-for-pro-america-programming-like-daily-pledge-of-allegiance/'>
+            <div class='story-block' id='sb-8086788537' data-link='https://arstechnica.com/tech-policy/2026/02/fcc-asks-stations-for-pro-america-programming-like-daily-pledge-of-allegiance/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3243233682")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8086788537")'>★</span>
                     <a class='headline' href='https://arstechnica.com/tech-policy/2026/02/fcc-asks-stations-for-pro-america-programming-like-daily-pledge-of-allegiance/' target='_blank'> FCC 要求電視台製作「親美」節目，例如每日《效忠誓言》</a>
                 </div>
                 <div class='meta'>Ars Technica | 06:00</div>
             </div>
-            <div class='story-block' id='sb-1575165234' data-link='https://arstechnica.com/gadgets/2026/02/metas-flagship-metaverse-service-leaves-vr-behind/'>
+            <div class='story-block' id='sb-1830921075' data-link='https://arstechnica.com/gadgets/2026/02/metas-flagship-metaverse-service-leaves-vr-behind/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1575165234")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("1830921075")'>★</span>
                     <a class='headline' href='https://arstechnica.com/gadgets/2026/02/metas-flagship-metaverse-service-leaves-vr-behind/' target='_blank'> Meta 的旗艦元宇宙服務讓 VR 落後</a>
                 </div>
                 <div class='meta'>Ars Technica | 05:49</div>
             </div>
-            <div class='story-block' id='sb-2473068851' data-link='https://arstechnica.com/science/2026/02/new-dates-on-chinese-fossils-raise-question-of-how-many-times-we-left-africa/'>
+            <div class='story-block' id='sb-6906996381' data-link='https://9to5google.com/2026/02/20/google-weather-app-android-deprecation/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2473068851")'>★</span>
-                    <a class='headline' href='https://arstechnica.com/science/2026/02/new-dates-on-chinese-fossils-raise-question-of-how-many-times-we-left-africa/' target='_blank'> 來自中國的「百萬年前」頭骨化石要古老得多——而不是丹尼索瓦人</a>
-                </div>
-                <div class='meta'>Ars Technica | 01:03</div>
-            </div>
-            <div class='story-block' id='sb-6123244702' data-link='https://arstechnica.com/culture/2026/02/its-outright-war-for-the-iron-throne-in-house-of-the-dragon-s3-teaser/'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6123244702")'>★</span>
-                    <a class='headline' href='https://arstechnica.com/culture/2026/02/its-outright-war-for-the-iron-throne-in-house-of-the-dragon-s3-teaser/' target='_blank'> 《龍之屋》S3 預告片中，這是鐵王座的徹底戰爭</a>
-                </div>
-                <div class='meta'>Ars Technica | 00:40</div>
-            </div>
-            <div class='story-block' id='sb-4295673735' data-link='https://9to5google.com/2026/02/20/google-weather-app-android-deprecation/'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4295673735")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6906996381")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/20/google-weather-app-android-deprecation/' target='_blank'> 谷歌天氣安卓「應用程式」即將消失</a>
                 </div>
                 <div class='meta'>9to5Google | 07:25</div>
             </div>
-            <div class='story-block' id='sb-3207656855' data-link='https://9to5google.com/2026/02/20/stealing-tensor-pixel-trade-secrets-ex-google-employees/'>
+            <div class='story-block' id='sb-7807057923' data-link='https://9to5google.com/2026/02/20/stealing-tensor-pixel-trade-secrets-ex-google-employees/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3207656855")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7807057923")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/20/stealing-tensor-pixel-trade-secrets-ex-google-employees/' target='_blank'> 谷歌前員工被指控“竊取 Pixel Tensor 晶片的商業機密”</a>
                 </div>
                 <div class='meta'>9to5Google | 06:50</div>
             </div>
-            <div class='story-block' id='sb-6577681868' data-link='https://9to5google.com/2026/02/20/pixelated-089-havent-i-seen-this-pixel-before/'>
+            <div class='story-block' id='sb-8310054763' data-link='https://9to5google.com/2026/02/20/pixelated-089-havent-i-seen-this-pixel-before/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6577681868")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8310054763")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/20/pixelated-089-havent-i-seen-this-pixel-before/' target='_blank'> Pixelated 089：我以前沒看過這個Pixel嗎？</a>
                 </div>
                 <div class='meta'>9to5Google | 05:30</div>
             </div>
-            <div class='story-block' id='sb-1882245438' data-link='https://9to5google.com/2026/02/20/notebooklm-slide-prompts/'>
+            <div class='story-block' id='sb-5274054701' data-link='https://9to5google.com/2026/02/20/notebooklm-slide-prompts/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1882245438")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5274054701")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/20/notebooklm-slide-prompts/' target='_blank'> NotebookLM 推出以提示為基礎的投影片修訂、Gemini 3.1 Pro 等</a>
                 </div>
                 <div class='meta'>9to5Google | 05:07</div>
             </div>
-            <div class='story-block' id='sb-6341900565' data-link='https://9to5google.com/2026/02/20/pixel-watch-4-gets-a-handy-usb-c-charger-for-travel-starts-at-9/'>
+            <div class='story-block' id='sb-6088466183' data-link='https://9to5google.com/2026/02/20/pixel-watch-4-gets-a-handy-usb-c-charger-for-travel-starts-at-9/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6341900565")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6088466183")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/20/pixel-watch-4-gets-a-handy-usb-c-charger-for-travel-starts-at-9/' target='_blank'> Pixel Watch 4 配有方便旅行的 USB-C 充電器，起價為 9 美元，很快補貨 [U]</a>
                 </div>
                 <div class='meta'>9to5Google | 03:06</div>
             </div>
-            <div class='story-block' id='sb-1605131718' data-link='https://9to5toys.com/2026/02/20/todays-android-app-deals-free-flame-keeper-sentinels/'>
+            <div class='story-block' id='sb-3786096150' data-link='https://9to5toys.com/2026/02/20/todays-android-app-deals-free-flame-keeper-sentinels/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1605131718")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3786096150")'>★</span>
                     <a class='headline' href='https://9to5toys.com/2026/02/20/todays-android-app-deals-free-flame-keeper-sentinels/' target='_blank'> 今日 Android 應用程式優惠與贈品：Flame Keeper、Sentinels of Earth-Prime、F<span class="kw-highlight">ai</span>ry Knights 等</a>
                 </div>
                 <div class='meta'>9to5Google | 02:31</div>
             </div>
-            <div class='story-block' id='sb-6453723681' data-link='https://9to5google.com/2026/02/20/instagrams-reels-first-redesign-might-get-a-customizable-your-feed-video/'>
+            <div class='story-block' id='sb-2873286877' data-link='https://9to5google.com/2026/02/20/instagrams-reels-first-redesign-might-get-a-customizable-your-feed-video/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6453723681")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2873286877")'>★</span>
                     <a class='headline' href='https://9to5google.com/2026/02/20/instagrams-reels-first-redesign-might-get-a-customizable-your-feed-video/' target='_blank'> Instagram 的 Reels 首次重新設計可能會提供可自訂的「您的提要」[影片]</a>
                 </div>
                 <div class='meta'>9to5Google | 01:50</div>
             </div>
-            <div class='story-block' id='sb-4206578214' data-link='https://9to5google.com/2026/02/20/leaked-galaxy-buds-4-prices/'>
+            <div class='story-block' id='sb-4598530936' data-link='https://www.macrumors.com/2026/02/21/ankers-weekend-sale/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4206578214")'>★</span>
-                    <a class='headline' href='https://9to5google.com/2026/02/20/leaked-galaxy-buds-4-prices/' target='_blank'> 洩漏的 Galaxy Buds 4 和 4 Pro 在美國價格保持穩定</a>
-                </div>
-                <div class='meta'>9to5Google | 00:54</div>
-            </div>
-            <div class='story-block' id='sb-6356527804' data-link='https://9to5google.com/2026/02/20/deals-samsung-best-buy-sale-galaxy-s25-fe-galaxy-book5/'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6356527804")'>★</span>
-                    <a class='headline' href='https://9to5google.com/2026/02/20/deals-samsung-best-buy-sale-galaxy-s25-fe-galaxy-book5/' target='_blank'> 優惠：Samsung Best Buy 1 天促銷，Galaxy S25 FE 425 美元，Galaxy Book5 450 美元折扣，Buds 3 FE 超過 50% 折扣，更多</a>
-                </div>
-                <div class='meta'>9to5Google | 00:46</div>
-            </div>
-            <div class='story-block' id='sb-9188577642' data-link='https://www.macrumors.com/2026/02/21/ankers-weekend-sale/'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("9188577642")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4598530936")'>★</span>
                     <a class='headline' href='https://www.macrumors.com/2026/02/21/ankers-weekend-sale/' target='_blank'> Anker 週末促銷包括最新 Prime 充電器大優惠</a>
                 </div>
                 <div class='meta'>MacRumors: Mac New | 23:32</div>
             </div>
-            <div class='story-block' id='sb-5292669118' data-link='https://www.macrumors.com/2026/02/20/jony-ive-openai-smart-speaker-2027/'>
+            <div class='story-block' id='sb-6582548565' data-link='https://www.macrumors.com/2026/02/20/jony-ive-openai-smart-speaker-2027/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5292669118")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6582548565")'>★</span>
                     <a class='headline' href='https://www.macrumors.com/2026/02/20/jony-ive-openai-smart-speaker-2027/' target='_blank'> Jony Ive 的首款 Open<span class="kw-highlight">AI</span> 設備將是帶有相機的智慧音箱，計劃於 2027 年推出</a>
                 </div>
                 <div class='meta'>MacRumors: Mac New | 04:01</div>
             </div>
-            <div class='story-block' id='sb-2659141921' data-link='https://www.macrumors.com/2026/02/20/low-cost-macbook-latest-rumors/'>
+            <div class='story-block' id='sb-4046586264' data-link='https://www.macrumors.com/2026/02/20/low-cost-macbook-latest-rumors/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2659141921")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4046586264")'>★</span>
                     <a class='headline' href='https://www.macrumors.com/2026/02/20/low-cost-macbook-latest-rumors/' target='_blank'> 蘋果的低成本彩色 MacBook：所有謠言</a>
                 </div>
                 <div class='meta'>MacRumors: Mac New | 06:30</div>
             </div>
-            <div class='story-block' id='sb-2403898341' data-link='https://www.bleepingcomputer.com/news/security/amazon-ai-assisted-hacker-breached-600-fortigate-firewalls-in-5-weeks/'>
+            <div class='story-block' id='sb-2793370088' data-link='https://www.bleepingcomputer.com/news/security/amazon-ai-assisted-hacker-breached-600-fortigate-firewalls-in-5-weeks/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2403898341")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2793370088")'>★</span>
                     <a class='headline' href='https://www.bleepingcomputer.com/news/security/amazon-ai-assisted-hacker-breached-600-fortigate-firewalls-in-5-weeks/' target='_blank'>[資安] 亞馬遜：人工智慧輔助駭客在 5 週內攻破 600 個 Fortinet 防火牆</a>
                 </div>
                 <div class='meta'>BleepingComputer | 21:50</div>
             </div>
-            <div class='story-block' id='sb-3263564753' data-link='https://www.bleepingcomputer.com/news/security/japanese-tech-giant-advantest-hit-by-ransomware-attack/'>
+            <div class='story-block' id='sb-8380129106' data-link='https://www.bleepingcomputer.com/news/security/japanese-tech-giant-advantest-hit-by-ransomware-attack/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3263564753")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8380129106")'>★</span>
                     <a class='headline' href='https://www.bleepingcomputer.com/news/security/japanese-tech-giant-advantest-hit-by-ransomware-attack/' target='_blank'>[資安] 日本科技巨頭 Advantest 遭遇勒索軟體攻擊</a>
                 </div>
                 <div class='meta'>BleepingComputer | 02:30</div>
             </div>
-            <div class='story-block' id='sb-8303507862' data-link='https://thenewstack.io/model-context-protocol-evolution/'>
+            <div class='story-block' id='sb-7116253066' data-link='https://thenewstack.io/model-context-protocol-evolution/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("8303507862")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7116253066")'>★</span>
                     <a class='headline' href='https://thenewstack.io/model-context-protocol-evolution/' target='_blank'> 超越氛圍代碼：MCP 必須攀登陡峭的山峰才能達到生產</a>
                 </div>
                 <div class='meta'>The New Stack | 22:00</div>
             </div>
-            <div class='story-block' id='sb-6063865330' data-link='https://thenewstack.io/red-hat-enters-the-cloud-native-developer-desktop-market/'>
+            <div class='story-block' id='sb-8048802048' data-link='https://thenewstack.io/red-hat-enters-the-cloud-native-developer-desktop-market/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6063865330")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8048802048")'>★</span>
                     <a class='headline' href='https://thenewstack.io/red-hat-enters-the-cloud-native-developer-desktop-market/' target='_blank'> 紅帽透過其企業 Podman Desktop 版本挑戰 Docker Desktop</a>
                 </div>
                 <div class='meta'>The New Stack | 05:00</div>
             </div>
-            <div class='story-block' id='sb-4119407958' data-link='https://thenewstack.io/agentic-ai-verification-impact/'>
+            <div class='story-block' id='sb-2468202445' data-link='https://thenewstack.io/agentic-ai-verification-impact/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4119407958")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2468202445")'>★</span>
                     <a class='headline' href='https://thenewstack.io/agentic-ai-verification-impact/' target='_blank'> 96% 的開發人員不信任人工智慧程式碼：這是解決問題的一步</a>
                 </div>
                 <div class='meta'>The New Stack | 02:05</div>
             </div>
-            <div class='story-block' id='sb-3617128643' data-link='https://thenextweb.com/news/berlin-hosts-private-premiere-of-holiguards-saga'>
+            <div class='story-block' id='sb-3991825813' data-link='https://thenextweb.com/news/berlin-hosts-private-premiere-of-holiguards-saga'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3617128643")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3991825813")'>★</span>
                     <a class='headline' href='https://thenextweb.com/news/berlin-hosts-private-premiere-of-holiguards-saga' target='_blank'> 柏林舉辦《Holiguards Saga》私人首映力量之門－凱文史貝西和埃爾維拉派特森</a>
                 </div>
                 <div class='meta'>The Next Web | 01:27</div>
             </div></div>
-            <div class='river'><div class='river-title'>Japan/Korea</div><div class='date-header'>2026-02-22</div>
-            <div class='story-block' id='sb-1567317370' data-link='https://www.etnews.com/20260220000212'>
+            <div class='river'><div class='river-title'>Japan/Korea</div><div class='date-header'>2026-02-23</div>
+            <div class='story-block' id='sb-2365693609' data-link='https://asia.nikkei.com/politics/ukraine-war/chinese-state-company-helps-russian-ally-build-ammunition-plant'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1567317370")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2365693609")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/politics/ukraine-war/chinese-state-company-helps-russian-ally-build-ammunition-plant' target='_blank'> 中國國營企業幫助俄羅斯盟友建設彈藥廠</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-7320067018' data-link='https://asia.nikkei.com/spotlight/comment/with-the-last-us-russia-nuclear-pact-now-expired-new-possibilities-emerge'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("7320067018")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/spotlight/comment/with-the-last-us-russia-nuclear-pact-now-expired-new-possibilities-emerge' target='_blank'> 隨著美俄最後一項核協議現已到期，新的可能性出現</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-2500427079' data-link='https://asia.nikkei.com/business/automobiles/china-automakers-look-to-toyota-in-next-growth-push-in-thailand'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("2500427079")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/business/automobiles/china-automakers-look-to-toyota-in-next-growth-push-in-thailand' target='_blank'> 中國汽車製造商期待豐田在泰國的下一次成長動力</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-9142276676' data-link='https://asia.nikkei.com/spotlight/your-week-in-asia/merz-visits-china-duterte-charges-india-gdp'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("9142276676")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/spotlight/your-week-in-asia/merz-visits-china-duterte-charges-india-gdp' target='_blank'> 梅爾茲訪華、杜特蒂指控、印度GDP</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-5487313815' data-link='https://asia.nikkei.com/business/education/turkey-positions-itself-as-universities-hub-for-muslim-students'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("5487313815")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/business/education/turkey-positions-itself-as-universities-hub-for-muslim-students' target='_blank'> 土耳其將自己定位為穆斯林學生的大學中心</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-4181621366' data-link='https://asia.nikkei.com/spotlight/comment/japan-s-takaichi-should-look-to-trump-s-taco-playbook-on-tax-cut'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("4181621366")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/spotlight/comment/japan-s-takaichi-should-look-to-trump-s-taco-playbook-on-tax-cut' target='_blank'> 日本高市應借鏡川普的「TACO」減稅策略</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-3430638977' data-link='https://asia.nikkei.com/business/travel-leisure/japan-s-nara-promotes-nighttime-activity-to-change-day-trip-only-image'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("3430638977")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/business/travel-leisure/japan-s-nara-promotes-nighttime-activity-to-change-day-trip-only-image' target='_blank'> 日本奈良推廣夜間活動改變「僅限一日遊」形象</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-3199383837' data-link='https://asia.nikkei.com/life-arts/life/destinations/women-take-on-growing-role-in-pakistan-s-travel-industry'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("3199383837")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/life-arts/life/destinations/women-take-on-growing-role-in-pakistan-s-travel-industry' target='_blank'> 女性在巴基斯坦旅遊業中發揮越來越重要的作用</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-8811525019' data-link='https://asia.nikkei.com/business/markets/commodities/chinese-consumers-snap-up-gold-jewelry-merch-for-fandom-and-investment'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("8811525019")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/business/markets/commodities/chinese-consumers-snap-up-gold-jewelry-merch-for-fandom-and-investment' target='_blank'> 中國消費者搶購黃金珠寶商品是為了粉絲和投資</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-3735797780' data-link='https://asia.nikkei.com/opinion/yoon-suk-yeol-s-verdict-is-a-test-for-south-korean-democracy'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("3735797780")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/opinion/yoon-suk-yeol-s-verdict-is-a-test-for-south-korean-democracy' target='_blank'> 尹石烈的判決是對韓國民主的考驗</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-8453785310' data-link='https://asia.nikkei.com/economy/trade-war/trump-tariffs/trump-now-wants-to-impose-15-tariff-after-supreme-court-decision'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("8453785310")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/economy/trade-war/trump-tariffs/trump-now-wants-to-impose-15-tariff-after-supreme-court-decision' target='_blank'> 最高法院裁決後，川普現在想徵收 15% 的關稅</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-7645566657' data-link='https://asia.nikkei.com/spotlight/japan-immigration/japan-bill-requires-airlines-deny-boarding-to-unauthorized-visitors'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("7645566657")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/spotlight/japan-immigration/japan-bill-requires-airlines-deny-boarding-to-unauthorized-visitors' target='_blank'> 日本法案要求航空公司拒絕未經授權的遊客登機</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-5229540846' data-link='https://asia.nikkei.com/economy/trade-war/trump-tariffs/japan-signals-us-tariff-ruling-won-t-affect-agreed-projects-as-asia-reacts'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("5229540846")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/economy/trade-war/trump-tariffs/japan-signals-us-tariff-ruling-won-t-affect-agreed-projects-as-asia-reacts' target='_blank'> 日本表示美國關稅裁決不會影響已達成的項目，亞洲對此做出反應</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-1446811062' data-link='https://asia.nikkei.com/business/agriculture/7-eleven-operator-backs-regenerative-farming-to-secure-coffee-supply'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("1446811062")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/business/agriculture/7-eleven-operator-backs-regenerative-farming-to-secure-coffee-supply' target='_blank'> 7-11 營運商支持再生農業以確保咖啡供應</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-2285767182' data-link='https://asia.nikkei.com/spotlight/comment/anutin-s-surprise-win-marks-conservative-resurgence-in-thailand'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("2285767182")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/spotlight/comment/anutin-s-surprise-win-marks-conservative-resurgence-in-thailand' target='_blank'> 阿努丁的意外勝利標誌著泰國保守派的復興</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-9520119706' data-link='https://asia.nikkei.com/economy/trade-war/trump-tariffs/southeast-asian-exporters-seen-as-net-winners-from-trump-tariff-ruling'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("9520119706")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/economy/trade-war/trump-tariffs/southeast-asian-exporters-seen-as-net-winners-from-trump-tariff-ruling' target='_blank'> 東南亞出口商被視為川普關稅裁決的“淨贏家”</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-7911747115' data-link='https://asia.nikkei.com/politics/taiwan-s-local-election-race-heats-up-as-kmt-targets-dpp-turf'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("7911747115")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/politics/taiwan-s-local-election-race-heats-up-as-kmt-targets-dpp-turf' target='_blank'> 國民黨瞄準民進黨地盤 台灣地方選舉競爭升溫</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-2052950217' data-link='https://asia.nikkei.com/business/technology/artificial-intelligence/hitachi-wields-machine-control-know-how-to-train-physical-ai'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("2052950217")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/business/technology/artificial-intelligence/hitachi-wields-machine-control-know-how-to-train-physical-ai' target='_blank'> 日立利用機器控制知識來訓練實體人工智慧</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div>
+            <div class='story-block' id='sb-5301386714' data-link='https://asia.nikkei.com/business/automobiles/harley-davidson-revs-up-japan-lineup-with-23-models-this-year'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("5301386714")'>★</span>
+                    <a class='headline' href='https://asia.nikkei.com/business/automobiles/harley-davidson-revs-up-japan-lineup-with-23-models-this-year' target='_blank'> 哈雷戴維森今年在日本推出 23 款車型</a>
+                </div>
+                <div class='meta'>Nikkei Asia | 01:06</div>
+            </div><div class='date-header'>2026-02-22</div>
+            <div class='story-block' id='sb-3088629629' data-link='https://www.etnews.com/20260220000212'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("3088629629")'>★</span>
                     <a class='headline' href='https://www.etnews.com/20260220000212' target='_blank'> [MWC26前瞻]〈1〉開啟以<span class="kw-highlight">AI</span>為基礎的「智慧時代」…拓展移動視野，包括<span class="kw-highlight">AI</span>與太空</a>
                 </div>
                 <div class='meta'>IT | 15:30</div>
             </div>
-            <div class='story-block' id='sb-4044355724' data-link='https://www.etnews.com/20260220000100'>
+            <div class='story-block' id='sb-8931859879' data-link='https://www.etnews.com/20260220000100'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4044355724")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8931859879")'>★</span>
                     <a class='headline' href='https://www.etnews.com/20260220000100' target='_blank'> [李乃燦教授的廣告傳播史]〈52〉Saerom Technology的撥號盤、早期網路電話的興衰</a>
                 </div>
                 <div class='meta'>IT | 15:00</div>
             </div>
-            <div class='story-block' id='sb-5544345476' data-link='https://www.etnews.com/20260222000024'>
+            <div class='story-block' id='sb-7650171392' data-link='https://www.etnews.com/20260222000024'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5544345476")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7650171392")'>★</span>
                     <a class='headline' href='https://www.etnews.com/20260222000024' target='_blank'> Nexon，「策略是Söderlund，執行是Jeongheon Lee」...全球生產領導力遊戲獲勝者</a>
                 </div>
                 <div class='meta'>IT | 08:49</div>
             </div>
-            <div class='story-block' id='sb-6900656977' data-link='https://www.etnews.com/20260222000023'>
+            <div class='story-block' id='sb-6172002231' data-link='https://www.etnews.com/20260222000023'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6900656977")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6172002231")'>★</span>
                     <a class='headline' href='https://www.etnews.com/20260222000023' target='_blank'> 《龍劍》網禪VS獵犬13正面碰撞…出版結構風險浮出水面</a>
                 </div>
                 <div class='meta'>IT | 08:47</div>
             </div>
-            <div class='story-block' id='sb-4439149086' data-link='https://www.etnews.com/20260220000214'>
+            <div class='story-block' id='sb-2300701750' data-link='https://www.etnews.com/20260220000214'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4439149086")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2300701750")'>★</span>
                     <a class='headline' href='https://www.etnews.com/20260220000214' target='_blank'> 電信公司<span class="kw-highlight">AI</span>DC擴張速度...減少大都會區的監管並暢通當地購電協議</a>
                 </div>
                 <div class='meta'>IT | 08:30</div>
             </div>
-            <div class='story-block' id='sb-6963835062' data-link='https://www.etnews.com/20260220000189'>
+            <div class='story-block' id='sb-6491681687' data-link='https://www.etnews.com/20260220000189'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6963835062")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6491681687")'>★</span>
                     <a class='headline' href='https://www.etnews.com/20260220000189' target='_blank'> 「媒體發展委員會」漸行漸遠…媒體綜合政策長期脫節令人擔憂</a>
                 </div>
                 <div class='meta'>IT | 08:30</div>
             </div>
-            <div class='story-block' id='sb-9173461988' data-link='https://www.etnews.com/20260222000009'>
+            <div class='story-block' id='sb-2630280286' data-link='https://www.etnews.com/20260222000009'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("9173461988")'>★</span>
-                    <a class='headline' href='https://www.etnews.com/20260222000009' target='_blank'> “Hey Flex”…<span class="kw-highlight">三星</span>在 Galaxy S26 中安裝了“Perplexity <span class="kw-highlight">AI</span>”</a>
+                    <span class='star-btn' onclick='toggleStar("2630280286")'>★</span>
+                    <a class='headline' href='https://www.etnews.com/20260222000009' target='_blank'> “Hey Flex”…<span class="kw-highlight">三星</span>在 Galaxy S26 上安裝“Perplexity <span class="kw-highlight">AI</span>”</a>
                 </div>
                 <div class='meta'>IT | 08:04</div>
             </div>
-            <div class='story-block' id='sb-1951320574' data-link='https://www.etnews.com/20260221000045'>
+            <div class='story-block' id='sb-7682657995' data-link='https://www.etnews.com/20260221000045'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1951320574")'>★</span>
-                    <a class='headline' href='https://www.etnews.com/20260221000045' target='_blank'> LGU+，MWC 26歲“呈現以人為本的人工智慧創造的未來”</a>
+                    <span class='star-btn' onclick='toggleStar("7682657995")'>★</span>
+                    <a class='headline' href='https://www.etnews.com/20260221000045' target='_blank'> LGU+，MWC 26 歲“呈現以人為本的人工智慧創造的未來願景”</a>
                 </div>
                 <div class='meta'>IT | 08:00</div>
             </div>
-            <div class='story-block' id='sb-5670349026' data-link='https://www.etnews.com/20260222000007'>
+            <div class='story-block' id='sb-6603124493' data-link='https://www.etnews.com/20260222000007'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5670349026")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6603124493")'>★</span>
                     <a class='headline' href='https://www.etnews.com/20260222000007' target='_blank'> 韓流文學遊戲化，瞄準全球市場</a>
                 </div>
                 <div class='meta'>IT | 07:59</div>
             </div><div class='date-header'>2026-02-21</div>
-            <div class='story-block' id='sb-7150239328' data-link='https://www.etnews.com/20260220000093'>
+            <div class='story-block' id='sb-2667087283' data-link='https://www.etnews.com/20260220000093'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7150239328")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2667087283")'>★</span>
                     <a class='headline' href='https://www.etnews.com/20260220000093' target='_blank'> [ET Eyesight] 成為有吸引力的電信股的條件</a>
                 </div>
                 <div class='meta'>IT | 21:00</div>
             </div>
-            <div class='story-block' id='sb-2121688044' data-link='https://www.sbbit.jp/article/fj/180712?ref=rss'>
+            <div class='story-block' id='sb-2608121613' data-link='https://www.sbbit.jp/article/fj/180712?ref=rss'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2121688044")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2608121613")'>★</span>
                     <a class='headline' href='https://www.sbbit.jp/article/fj/180712?ref=rss' target='_blank'> 【前國稅局解說】4月至6月加班的人要小心…社保費上漲的“條件”</a>
                 </div>
                 <div class='meta'>ビジネス+IT HotTopics | 06:30</div>
             </div></div>
             <div class='river'><div class='river-title'>Taiwan Tech</div><div class='date-header'>2026-02-22</div>
-            <div class='story-block' id='sb-1235837428' data-link='https://technews.tw/2026/02/22/project-silica-borosilicate-glass/'>
+            <div class='story-block' id='sb-6337130323' data-link='https://technews.tw/2026/02/22/project-silica-borosilicate-glass/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1235837428")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6337130323")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/project-silica-borosilicate-glass/' target='_blank'> 資料無損保存 1 萬年，微軟展示玻璃儲存技術突破性成果</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 18:03</div>
             </div>
-            <div class='story-block' id='sb-3328433167' data-link='https://finance.technews.tw/2026/02/22/asus-acer-vs-nokia-in-germany/'>
+            <div class='story-block' id='sb-8032532558' data-link='https://finance.technews.tw/2026/02/22/asus-acer-vs-nokia-in-germany/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3328433167")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("8032532558")'>★</span>
                     <a class='headline' href='https://finance.technews.tw/2026/02/22/asus-acer-vs-nokia-in-germany/' target='_blank'> 宏碁華碩與諾基亞專利糾紛，部分 PC 暫停德國銷售</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 17:15</div>
             </div>
-            <div class='story-block' id='sb-2922376928' data-link='https://technews.tw/2026/02/22/onenessbio-bonvadis-got-invima-permission/'>
+            <div class='story-block' id='sb-2161994152' data-link='https://technews.tw/2026/02/22/onenessbio-bonvadis-got-invima-permission/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2922376928")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2161994152")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/onenessbio-bonvadis-got-invima-permission/' target='_blank'> 合一 Bonvadis 獲哥倫比亞准入，首次取得拉美國家許可</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 17:00</div>
             </div>
-            <div class='story-block' id='sb-9825482086' data-link='https://finance.technews.tw/2026/02/22/everlight-sue-seoul-semiconductor/'>
+            <div class='story-block' id='sb-6489305870' data-link='https://finance.technews.tw/2026/02/22/everlight-sue-seoul-semiconductor/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("9825482086")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6489305870")'>★</span>
                     <a class='headline' href='https://finance.technews.tw/2026/02/22/everlight-sue-seoul-semiconductor/' target='_blank'> 億光控首爾<span class="kw-highlight">半導體</span>侵權，在美提告求償</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 16:45</div>
             </div>
-            <div class='story-block' id='sb-6539665104' data-link='https://technews.tw/2026/02/22/meta-is-a-planning-a-terrifying-new-upgrade-for-its-smart-glasses/'>
+            <div class='story-block' id='sb-1815473804' data-link='https://technews.tw/2026/02/22/meta-is-a-planning-a-terrifying-new-upgrade-for-its-smart-glasses/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6539665104")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("1815473804")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/meta-is-a-planning-a-terrifying-new-upgrade-for-its-smart-glasses/' target='_blank'> Meta 智慧眼鏡傳加入臉部辨識功能，隱私風險急升高</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 15:45</div>
             </div>
-            <div class='story-block' id='sb-3127072023' data-link='https://finance.technews.tw/2026/02/22/tw-should-prepare-for-301/'>
+            <div class='story-block' id='sb-5017037497' data-link='https://finance.technews.tw/2026/02/22/tw-should-prepare-for-301/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3127072023")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5017037497")'>★</span>
                     <a class='headline' href='https://finance.technews.tw/2026/02/22/tw-should-prepare-for-301/' target='_blank'> 中經院長：對美逆差大，台灣應為 301 條款調查預作準備</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 15:15</div>
             </div>
-            <div class='story-block' id='sb-5707960594' data-link='https://technews.tw/2026/02/22/u-s-military-airlifts-small-reactor-as-trump-pushes-to-quickly-deploy-nuclear-power/'>
+            <div class='story-block' id='sb-7931616563' data-link='https://technews.tw/2026/02/22/u-s-military-airlifts-small-reactor-as-trump-pushes-to-quickly-deploy-nuclear-power/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5707960594")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7931616563")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/u-s-military-airlifts-small-reactor-as-trump-pushes-to-quickly-deploy-nuclear-power/' target='_blank'> 美國軍方成功空運小型核反應爐，為快速部署核能又近一步</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 14:45</div>
             </div>
-            <div class='story-block' id='sb-3102505730' data-link='https://technews.tw/2026/02/22/google-fixes-glitch-serving-ads-to-youtube-premium-users/'>
+            <div class='story-block' id='sb-1322746828' data-link='https://technews.tw/2026/02/22/google-fixes-glitch-serving-ads-to-youtube-premium-users/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3102505730")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("1322746828")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/google-fixes-glitch-serving-ads-to-youtube-premium-users/' target='_blank'> 買了 YouTube Premium 卻被插廣告？Google 還在調查，用戶可先重設自力救濟</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 14:15</div>
             </div>
-            <div class='story-block' id='sb-5903478990' data-link='https://technews.tw/2026/02/22/amd-ryzen-11000-series-zen-6-desktop-cpus-tipped-to-launch-in-2027/'>
+            <div class='story-block' id='sb-2791087791' data-link='https://technews.tw/2026/02/22/amd-ryzen-11000-series-zen-6-desktop-cpus-tipped-to-launch-in-2027/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5903478990")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2791087791")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/amd-ryzen-11000-series-zen-6-desktop-cpus-tipped-to-launch-in-2027/' target='_blank'> 今年不會看到 <span class="kw-highlight">AMD</span> 和英特爾下代旗艦處理器？可能延後至 2027 年大撞車</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 14:00</div>
             </div>
-            <div class='story-block' id='sb-1484407451' data-link='https://technews.tw/2026/02/22/are-dating-apps-outdated/'>
+            <div class='story-block' id='sb-2570118504' data-link='https://technews.tw/2026/02/22/are-dating-apps-outdated/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("1484407451")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2570118504")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/are-dating-apps-outdated/' target='_blank'> 交友 App 是否已過時？Z 世代告別「滑動配對」文化，轉而在廚房建立更有意義的連繫</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 14:00</div>
             </div>
-            <div class='story-block' id='sb-6639806804' data-link='https://technews.tw/2026/02/22/samsung-got-dram-no1/'>
+            <div class='story-block' id='sb-5516324397' data-link='https://technews.tw/2026/02/22/samsung-got-dram-no1/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6639806804")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5516324397")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/samsung-got-dram-no1/' target='_blank'> <span class="kw-highlight">三星</span>重奪全球 DRAM 市場霸主地位，都是 HBM4 的功勞</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 13:45</div>
             </div>
-            <div class='story-block' id='sb-4405640497' data-link='https://finance.technews.tw/2026/02/22/teco-march-to-southeast-asia/'>
+            <div class='story-block' id='sb-3979904870' data-link='https://finance.technews.tw/2026/02/22/teco-march-to-southeast-asia/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("4405640497")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("3979904870")'>★</span>
                     <a class='headline' href='https://finance.technews.tw/2026/02/22/teco-march-to-southeast-asia/' target='_blank'> 東元拿下馬來西亞＋泰國 25 億大單，挺進東南亞 <span class="kw-highlight">AI</span> 超大規模<span class="kw-highlight">資料中心</span>戰場</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 13:00</div>
             </div>
-            <div class='story-block' id='sb-9159601977' data-link='https://technews.tw/2026/02/22/india-wz-brasil-rare-earth/'>
+            <div class='story-block' id='sb-7880050802' data-link='https://technews.tw/2026/02/22/india-wz-brasil-rare-earth/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("9159601977")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7880050802")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/india-wz-brasil-rare-earth/' target='_blank'> 印度減少依賴中國，攜手巴西加強關鍵礦產稀土合作</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 12:15</div>
             </div>
-            <div class='story-block' id='sb-3072915868' data-link='https://technews.tw/2026/02/22/artemis-ii-sls-rocket-nasa/'>
+            <div class='story-block' id='sb-4422600637' data-link='https://technews.tw/2026/02/22/artemis-ii-sls-rocket-nasa/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3072915868")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4422600637")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/artemis-ii-sls-rocket-nasa/' target='_blank'> 阿提米絲 2 號任務再推遲，SLS 火箭準備返廠維修上級故障</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 11:32</div>
             </div>
-            <div class='story-block' id='sb-3059681225' data-link='https://infosecu.technews.tw/2026/02/22/openclaw-founder-predicts-80percent-of-apps-will-disappear/'>
+            <div class='story-block' id='sb-7241742460' data-link='https://infosecu.technews.tw/2026/02/22/openclaw-founder-predicts-80percent-of-apps-will-disappear/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3059681225")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7241742460")'>★</span>
                     <a class='headline' href='https://infosecu.technews.tw/2026/02/22/openclaw-founder-predicts-80percent-of-apps-will-disappear/' target='_blank'> 「80% 的 App 將消失！」YC 專訪 OpenClaw 創辦人：<span class="kw-highlight">AI</span> 革命不在<span class="kw-highlight">雲端</span>，而在你電腦裡</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 11:00</div>
             </div>
-            <div class='story-block' id='sb-3906629101' data-link='https://technews.tw/2026/02/22/ai-tsmc-no1/'>
+            <div class='story-block' id='sb-6578611592' data-link='https://technews.tw/2026/02/22/ai-tsmc-no1/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("3906629101")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6578611592")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/ai-tsmc-no1/' target='_blank'> <span class="kw-highlight">AI</span> 驅動<span class="kw-highlight">半導體</span>再創新高，台積電晶圓代工獨霸地位穩</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 10:45</div>
             </div>
-            <div class='story-block' id='sb-5483225278' data-link='https://technews.tw/2026/02/22/ai-perpetual-motion/'>
+            <div class='story-block' id='sb-4678767120' data-link='https://technews.tw/2026/02/22/ai-perpetual-motion/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5483225278")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4678767120")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/ai-perpetual-motion/' target='_blank'> 產業內循環投資，成長動能受到檢視，「<span class="kw-highlight">AI</span> 永動機」啟動，算力投資全面加速</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 10:30</div>
             </div>
-            <div class='story-block' id='sb-5691617296' data-link='https://technews.tw/2026/02/22/billionaire-founder-of-minecraft-slams-anyone-advocating-using-ai-to-write-code-as-incompetent-or-evil/'>
+            <div class='story-block' id='sb-7633496361' data-link='https://technews.tw/2026/02/22/billionaire-founder-of-minecraft-slams-anyone-advocating-using-ai-to-write-code-as-incompetent-or-evil/'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5691617296")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7633496361")'>★</span>
                     <a class='headline' href='https://technews.tw/2026/02/22/billionaire-founder-of-minecraft-slams-anyone-advocating-using-ai-to-write-code-as-incompetent-or-evil/' target='_blank'> 〈Minecraft〉生父 Notch 又放炮，批用 <span class="kw-highlight">AI</span> 寫程式「不是無能就是邪惡」</a>
                 </div>
                 <div class='meta'>TechNews 科技新報 | 10:00</div>
             </div>
-            <div class='story-block' id='sb-5957590572' data-link='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746875_IUQ7R85N8RA7144UTLKCZ'>
+            <div class='story-block' id='sb-7630214368' data-link='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746875_IUQ7R85N8RA7144UTLKCZ'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5957590572")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("7630214368")'>★</span>
                     <a class='headline' href='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746875_IUQ7R85N8RA7144UTLKCZ' target='_blank'> 炸雞餐會後釋訊號　<span class="kw-highlight">NVIDIA</span>黃仁勳預告GTC亮相「前所未見」晶片</a>
                 </div>
                 <div class='meta'>DIGITIMES電子時報 | 21:07</div>
             </div>
-            <div class='story-block' id='sb-6407496379' data-link='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746895_9LI7946DL72D484EE6ZRP'>
+            <div class='story-block' id='sb-6189847561' data-link='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746895_9LI7946DL72D484EE6ZRP'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6407496379")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("6189847561")'>★</span>
                     <a class='headline' href='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746895_9LI7946DL72D484EE6ZRP' target='_blank'> <span class="kw-highlight">AI</span>浪潮點火　全球晶片設備大廠喜迎雙位數營收成長</a>
                 </div>
                 <div class='meta'>DIGITIMES電子時報 | 21:03</div>
             </div>
-            <div class='story-block' id='sb-5085350964' data-link='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746921_RW0LI6N31KK8GH2ZRPCQO'>
+            <div class='story-block' id='sb-5805166613' data-link='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746921_RW0LI6N31KK8GH2ZRPCQO'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5085350964")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("5805166613")'>★</span>
                     <a class='headline' href='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746921_RW0LI6N31KK8GH2ZRPCQO' target='_blank'> 黃仁勳抱恙坐鎮總部備戰GTC　Vday與工程師團隊嗨飲燒啤恐讓印度意難平</a>
                 </div>
                 <div class='meta'>DIGITIMES電子時報 | 10:20</div>
             </div>
-            <div class='story-block' id='sb-7213137235' data-link='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746930_820L5DU82ZNY7C1X4TECB'>
+            <div class='story-block' id='sb-2571024534' data-link='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746930_820L5DU82ZNY7C1X4TECB'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("7213137235")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2571024534")'>★</span>
                     <a class='headline' href='https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000746930_820L5DU82ZNY7C1X4TECB' target='_blank'> HCL攜手鴻海落子印度封測　India Chip啟動OSAT布局</a>
                 </div>
                 <div class='meta'>DIGITIMES電子時報 | 10:15</div>
             </div><div class='date-header'>2026-02-21</div>
-            <div class='story-block' id='sb-5963331061' data-link='https://www.ithome.com.tw/review/173982'>
+            <div class='story-block' id='sb-4983714923' data-link='https://www.ithome.com.tw/review/173982'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("5963331061")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("4983714923")'>★</span>
                     <a class='headline' href='https://www.ithome.com.tw/review/173982' target='_blank'> 採用自家ASIC與矽光子網路技術，輝達推出新款800G交換器</a>
                 </div>
                 <div class='meta'>iThome 新聞 | 10:02</div>
             </div>
-            <div class='story-block' id='sb-2370744318' data-link='https://www.ithome.com.tw/news/173983'>
+            <div class='story-block' id='sb-1723361360' data-link='https://www.ithome.com.tw/news/173983'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("2370744318")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("1723361360")'>★</span>
                     <a class='headline' href='https://www.ithome.com.tw/news/173983' target='_blank'> NIST啟動<span class="kw-highlight">AI</span>代理標準倡議力促互通與安全</a>
                 </div>
                 <div class='meta'>iThome 新聞 | 13:02</div>
             </div>
-            <div class='story-block' id='sb-6324057402' data-link='https://www.ithome.com.tw/news/173984'>
+            <div class='story-block' id='sb-2844025075' data-link='https://www.ithome.com.tw/news/173984'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("6324057402")'>★</span>
+                    <span class='star-btn' onclick='toggleStar("2844025075")'>★</span>
                     <a class='headline' href='https://www.ithome.com.tw/news/173984' target='_blank'> Open<span class="kw-highlight">AI</span>與Paradigm合推基準測試EVMbench，評測<span class="kw-highlight">AI</span>代理智慧合約漏洞攻防能力</a>
                 </div>
                 <div class='meta'>iThome 新聞 | 13:02</div>
