@@ -1,10 +1,9 @@
-# 這是顯示在 GitHub Actions 頁面上的名稱
 name: 豆子 IT 戰情室 (update_news)
 
 on:
-  workflow_dispatch: # 讓豆子可以手動按按鈕執行
+  workflow_dispatch: 
   schedule:
-    - cron: '0 0,8,16 * * *' # 每天台灣時間 08:00, 16:00, 00:00 自動跑
+    - cron: '0 0,8,16 * * *' 
 
 permissions:
   contents: write
@@ -23,11 +22,11 @@ jobs:
 
       - name: 安裝套件
         run: |
-          pip install feedparser sentence-transformers sklearn googletrans==4.0.0-rc1 beautifulsoup4 requests pytz python-dateutil urllib3
+          pip install feedparser sentence-transformers scikit-learn googletrans==4.0.0-rc1 beautifulsoup4 requests pytz python-dateutil urllib3
 
       - name: 執行 Scraper
         env:
-          PYTHONUNBUFFERED: "1" # 強制讓 Print 訊息即時顯示在 Log
+          PYTHONUNBUFFERED: "1"
         run: python main.py
 
       - name: 自動提交變更
