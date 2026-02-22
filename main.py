@@ -54,35 +54,30 @@ def highlight_keywords(text):
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.85
 
 def fetch_html_fallback(name, url, selectors, tag_name):
-    """強化 HTML 抓取：支援 CSS 模糊匹配與多級 Session 模擬"""
+    """強化 HTML 抓取備援"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Referer': 'https://www.google.com/',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     }
     articles = []
     try:
-        session = requests.Session()
-        resp = session.get(url, headers=headers, timeout=30, verify=False)
+        resp = requests.get(url, headers=headers, timeout=30, verify=False)
         if resp.status_code != 200: return []
         resp.encoding = 'utf-8'
         soup = BeautifulSoup(resp.text, 'html.parser')
-        
         items = []
         for sel in selectors:
             items = soup.select(sel)
             if items: break
-            
-        for item in items[:15]:
+        for item in items[:20]: # 首頁多抓一點來篩選
             title = item.get_text().strip()
             link = item.get('href', '')
             if not title or not link or len(title) < 5: continue
             if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
-            articles.append({
-                'raw_title': title, 'link': link, 'source': name,
-                'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_name,
-                'is_analysis': "[分析]" in tag_name, 'raw_summary': ""
-            })
+            # 排除掉關於我、廣告等非新聞連結
+            if any(x in link for x in ['/about', '/ad', '/privacy', '/author']): continue
+            
+            articles.append({'raw_title': title, 'link': link, 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_name, 'is_analysis': "[分析]" in tag_name, 'raw_summary': ""})
     except: pass
     return articles
 
@@ -91,7 +86,7 @@ def fetch_data(feed_list):
     now_utc = datetime.datetime.now(pytz.utc)
     limit_time = now_utc - datetime.timedelta(hours=72)
     seen_titles = []
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
     
     for item in feed_list:
         url, tag = item['url'], item['tag']
@@ -113,8 +108,9 @@ def fetch_data(feed_list):
                 data_by_date.setdefault(date_str, []).append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date_tw, 'tag_html': tag, 'is_analysis': "[分析]" in tag, 'raw_summary': clean_html(entry.get('summary', ""))})
                 seen_titles.append(title); stats[s_name] += 1
         except: continue
-    return data_by_date, stats
+    return data_by_date, stats, seen_titles
 
+# ... (cluster_and_translate 保持不變) ...
 def cluster_and_translate(daily_data, need_trans=False):
     model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     results = {}
@@ -184,32 +180,32 @@ def render_column(daily_clusters, title_prefix):
     return html + "</div>"
 
 def main():
-    intl_raw, intl_st = fetch_data(CONFIG['FEEDS']['INTL'])
-    jk_raw, jk_st = fetch_data(CONFIG['FEEDS']['JK'])
-    tw_raw, tw_st = fetch_data(CONFIG['FEEDS']['TW'])
+    # 載入資料
+    intl_raw, intl_st, seen_intl = fetch_data(CONFIG['FEEDS']['INTL'])
+    jk_raw, jk_st, seen_jk = fetch_data(CONFIG['FEEDS']['JK'])
+    tw_raw, tw_st, seen_tw = fetch_data(CONFIG['FEEDS']['TW'])
+    
+    all_seen = seen_intl + seen_jk + seen_tw
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
 
-    # --- 豆子特別調教：攻堅 0 產出來源 ---
-    # Nikkei Asia: 擴大 CSS 選擇器範圍
-    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['h2 a', 'h3 a', 'a[class*="title"]', '.n-card__title-link'], '')
+    # --- 特別補強：Nikkei Asia & CIO Taiwan ---
+    nikkei_web = fetch_html_fallback('Nikkei Asia', 'https://asia.nikkei.com', ['h2 a', 'h3 a', 'a[class*="title"]'], '')
     if nikkei_web: intl_raw.setdefault(today_str, []).extend(nikkei_web); intl_st['Nikkei Asia'] = len(nikkei_web)
 
-    # CIO Taiwan: 已救活，穩住
-    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', 'article h3 a', '.post-title a'], '[分析]')
+    cio_web = fetch_html_fallback('CIO Taiwan', 'https://www.cio.com.tw', ['h3.entry-title a', 'article h3 a'], '[分析]')
     if cio_web: tw_raw.setdefault(today_str, []).extend(cio_web); tw_st['CIO Taiwan'] = len(cio_web)
 
-    # 數位時代主站: 全面取代 Meet RSS
-    bnext_web = fetch_html_fallback('數位時代', 'https://www.bnext.com.tw/articles', ['a.item_title', '.item_box a', '.article_title'], '[數位]')
+    # 數位時代首頁抓取 (改抓 bnext.com.tw 首頁)
+    bnext_web_all = fetch_html_fallback('數位時代', 'https://www.bnext.com.tw/', ['div.item_box a', 'a.item_title'], '[數位]')
+    # 去重篩選：如果標題已經在 RSS 出現過就不重複加入
+    bnext_web = [a for a in bnext_web_all if not any(is_similar(a['raw_title'], s) for s in all_seen)]
     if bnext_web: tw_raw.setdefault(today_str, []).extend(bnext_web); tw_st['數位時代'] = len(bnext_web)
 
-    # ZDNet Japan: 嘗試更深層的路徑
-    zdj_web = fetch_html_fallback('ZDNet Japan', 'https://japan.zdnet.com', ['section.content-list h3 a', '.content-list h3 a', 'h3 a'], '[日]')
+    # ZDNet Japan
+    zdj_web = fetch_html_fallback('ZDNet Japan', 'https://japan.zdnet.com', ['section.content-list h3 a', 'h3 a'], '[日]')
     if zdj_web: jk_raw.setdefault(today_str, []).extend(zdj_web); jk_st['ZDNet Japan'] = len(zdj_web)
-    
-    # IT Impress: 備用路徑
-    impress_web = fetch_html_fallback('Impress IT', 'https://it.impress.co.jp', ['div.article p.title a', 'p.title a', 'h2 a'], '[日]')
-    if impress_web: jk_raw.setdefault(today_str, []).extend(impress_web); jk_st['Impress IT'] = len(impress_web)
 
+    # 執行聚類與翻譯
     intl_cls, jk_cls, tw_cls = cluster_and_translate(intl_raw, True), cluster_and_translate(jk_raw, True), cluster_and_translate(tw_raw, False)
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
     all_st = {**intl_st, **jk_st, **tw_st}
