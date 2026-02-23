@@ -11,7 +11,8 @@ TW_TZ = pytz.timezone('Asia/Taipei')
 TZ_INFOS = {"PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific"), "JST": pytz.timezone("Asia/Tokyo"), "KST": pytz.timezone("Asia/Seoul")}
 translator = Translator()
 SITE_TITLE = "豆子版 Techmeme | 2026.v1"
-FINAL_STATS = {} # 確保全域可用
+FINAL_STATS = {}
+DIAGNOSTIC_LOGS = []
 
 def load_config():
     if os.path.exists('feeds.json'):
@@ -42,44 +43,48 @@ def is_blacklisted(text):
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.4
 
 def fetch_from_html(name, url, selectors, tag_html):
-    """【強攻模式】兼容多種選擇器"""
     articles = []
-    FINAL_STATS[name] = 0 # 初始化統計
+    FINAL_STATS[name] = 0
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'}
     try:
         resp = requests.get(url, headers=headers, timeout=20, verify=False)
-        if resp.status_code != 200: return []
-        soup = BeautifulSoup(resp.text, 'html.parser')
+        if resp.status_code != 200:
+            msg = f"❌ {name}: HTTP {resp.status_code}"
+            DIAGNOSTIC_LOGS.append(msg); print(f"  [DIAGNOSTIC] {msg}")
+            return []
         
+        soup = BeautifulSoup(resp.text, 'html.parser')
         items = []
         for sel in selectors:
             items = soup.select(sel)
-            if items: break # 找到一個可用的選擇器就停止
+            if items: break
             
+        if not items:
+            msg = f"⚠️ {name}: 選擇器失效"
+            DIAGNOSTIC_LOGS.append(msg); print(f"  [DIAGNOSTIC] {msg}")
+            return []
+
         for item in items[:15]:
             title = item.get_text().strip()
             link = item.get('href', '')
             if not title or len(title) < 5 or is_blacklisted(title): continue
             if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
-            
-            articles.append({
-                'raw_title': title, 
-                'link': link, 
-                'source': name, 
-                'time': datetime.datetime.now(TW_TZ), 
-                'tag_html': tag_html
-            })
+            articles.append({'raw_title': title, 'link': link, 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_html})
             FINAL_STATS[name] += 1
-    except: pass
+        
+        msg = f"✅ {name}: 抓取成功 ({FINAL_STATS[name]} 則)"
+        DIAGNOSTIC_LOGS.append(msg); print(f"  [DIAGNOSTIC] {msg}")
+    except Exception as e:
+        msg = f"❌ {name}: 異常 ({str(e)[:50]})"
+        DIAGNOSTIC_LOGS.append(msg); print(f"  [DIAGNOSTIC] {msg}")
     return articles
 
 def fetch_data(feed_list):
     data_by_date, seen = {}, []
     now_utc = datetime.datetime.now(pytz.utc)
-    limit_time = now_utc - datetime.timedelta(hours=48)
+    limit_time = now_utc - datetime.timedelta(hours=96) # 4 天
     for item in feed_list:
         url, tag = item['url'], item['tag']
-        # 排除需要強攻的網站避免重複
         if any(x in url for x in ["cio.com.tw", "bnext.com.tw", "wsj.com"]): continue
         try:
             resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=20, verify=False)
@@ -87,7 +92,7 @@ def fetch_data(feed_list):
             s_name = feed.feed.title if 'title' in feed.feed else url.split('/')[2]
             s_name = s_name.split('|')[0].split('-')[0].strip()[:18]
             FINAL_STATS[s_name] = 0
-            for entry in feed.entries[:20]:
+            for entry in feed.entries[:25]:
                 title = entry.title.strip()
                 if is_blacklisted(title) or any(is_similar(title, s) for s in seen): continue
                 raw_date = entry.get('published', entry.get('pubDate', entry.get('updated', None)))
@@ -102,7 +107,9 @@ def fetch_data(feed_list):
 
 def render_column(data, title, need_trans=False):
     html = f"<div class='river'><div class='river-title'>{title}</div>"
-    for d_str in sorted(data.keys(), reverse=True):
+    sorted_dates = sorted(data.keys(), reverse=True)
+    if not sorted_dates: html += "<div style='color:#888; padding:20px;'>區間內無更新</div>"
+    for d_str in sorted_dates:
         html += f"<div class='date-header'>{d_str}</div>"
         for art in data[d_str]:
             display_title = highlight_keywords(translate_text(art['raw_title']) if need_trans else art['raw_title'])
@@ -111,16 +118,16 @@ def render_column(data, title, need_trans=False):
     return html + "</div>"
 
 def main():
-    print(">>> [1/2] 正在執行強攻與 RSS 抓取...")
+    print("--- [1/2] 啟動多站點抓取流程 (時限: 96hr) ---")
     intl_raw = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_raw = fetch_data(CONFIG['FEEDS']['JK'])
     tw_raw = fetch_data(CONFIG['FEEDS']['TW'])
 
-    # --- 更新後的強攻名單 ---
+    # 強攻站點定義
     special_sites = [
-        ("CIO Taiwan", "https://www.cio.com.tw/category/news/", ["h3.entry-title a", "h2.entry-title a", ".post-title a"], "[分析]"),
+        ("CIO Taiwan", "https://www.cio.com.tw/category/news/", ["h3.entry-title a", "h2.entry-title a"], "[分析]"),
         ("數位時代", "https://www.bnext.com.tw/articles", ["a.item_title", ".item_name a"], "[數位]"),
-        ("WSJ Tech", "https://www.wsj.com/tech", ["h3 a", "h2 a", ".wsj-headline a"], "[WSJ]")
+        ("WSJ Tech", "https://www.wsj.com/tech", ["h3 a", "h2 a"], "[WSJ]")
     ]
     
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
@@ -129,11 +136,10 @@ def main():
         target = intl_raw if name == "WSJ Tech" else tw_raw
         target.setdefault(today_str, []).extend(arts)
 
-    print(">>> [2/2] 產出網頁與統計中...")
+    print("--- [2/2] 生成網頁介面 ---")
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
-    
-    # 產出統計清單，確保數字與來源對齊
     stats_list = "".join([f"<li><span style='color:{('#27ae60' if v>0 else '#e74c3c')}; font-weight:bold;'>{v}</span> - {k}</li>" for k, v in sorted(FINAL_STATS.items(), key=lambda x: x[1], reverse=True)])
+    diag_html = "".join([f"<div style='margin-bottom:5px;'>{log}</div>" for log in DIAGNOSTIC_LOGS])
 
     full_html = f"""
     <html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>{SITE_TITLE}</title>
@@ -158,6 +164,8 @@ def main():
         .star-btn.active {{ color: #f1c40f; }}
         .kw-highlight {{ color: var(--kw); font-weight: bold; }}
         .btn {{ cursor: pointer; padding: 5px 12px; border: 1px solid var(--text); font-size: 12px; border-radius: 4px; font-weight: bold; background: var(--bg); color: var(--text); }}
+        .debug-footer {{ margin-top: 50px; padding: 20px; background: #f0f0f0; color: #333; font-family: monospace; font-size: 12px; border-top: 5px solid #ccc; }}
+        @media (prefers-color-scheme: dark) {{ .debug-footer {{ background: #222; color: #aaa; border-top-color: #444; }} }}
         body.only-stars .story-block:not(.has-star) {{ display: none; }}
     </style></head><body>
         <div class='header'>
@@ -166,6 +174,7 @@ def main():
         </div>
         <div id='stats-panel'><ul class='stats-columns'>{stats_list}</ul></div>
         <div class='wrapper'>{render_column(intl_raw, "Global Strategy", True)}{render_column(jk_raw, "Japan/Korea", True)}{render_column(tw_raw, "Taiwan Tech", False)}</div>
+        <div class='debug-footer'><h3>🛠️ 系統診斷報告</h3>{diag_html}</div>
         <script>
             function toggleStats() {{ const p = document.getElementById('stats-panel'); p.style.display = (p.style.display==='block')?'none':'block'; }}
             function toggleStar(h) {{
@@ -185,7 +194,7 @@ def main():
         </script></body></html>
     """
     with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
-    print(f">>> [成功] 統計清單共包含 {len(FINAL_STATS)} 個站點。")
+    print(">>> [完成] 網頁與日誌診斷已發布。")
 
 if __name__ == "__main__":
     main()
