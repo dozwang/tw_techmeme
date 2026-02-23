@@ -5,13 +5,12 @@ from bs4 import BeautifulSoup
 import google.generativeai as genai
 import urllib3
 
-# 確保在 GitHub Actions Log 中顯示中文不亂碼
 if sys.platform != 'win32':
     sys.stdout.reconfigure(encoding='utf-8')
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# --- 配置 ---
+# --- 核心配置 ---
 VERSION = "1.4.4"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
@@ -26,15 +25,15 @@ FINAL_STATS = {}
 
 SOURCE_CLEAN_MAP = {
     "全記事新着 - 日経クロステック": "日經 XTECH",
-    "日經 XTECH": "日經 XTECH",
+    "日経クロステック": "日經 XTECH",
     "IT - 전자신문": "韓國 ET News",
-    "韓國 ET News": "韓國 ET News",
+    "전자신문": "韓國 ET News",
     "ITmedia NEWS": "ITmedia NEWS",
     "ZDNET Japan": "ZDNET Japan",
     "CIO Taiwan": "CIO Taiwan"
 }
 
-NOISE_WORDS = ["快訊", "獨家", "Breaking", "Live", "Update", "更新", "最新", "直擊", "影", "圖", "報導", "Exclusive", "發送提示", "點我看", "懶人包", "必讀", "完整清單", "轉貼", "整理", "推薦", "秒懂", "精選"]
+NOISE_WORDS = ["快訊", "獨家", "Breaking", "Live", "Update", "更新", "最新", "直擊", "影", "圖", "報導", "Exclusive", "點我看", "懶人包", "必讀", "轉貼", "整理", "推薦", "秒懂"]
 
 def load_config():
     if os.path.exists('feeds.json'):
@@ -91,7 +90,7 @@ def badge_styler(tag_str):
 
 def ask_gemini_if_same_event(title1, title2):
     if not GEMINI_KEY: return False
-    prompt = f"判斷兩標題是否描述『同一個技術新聞事件』。相同回傳 YES，不同回傳 NO。\n1: {title1}\n2: {title2}"
+    prompt = f"作為編輯，判斷兩標題是否描述『同一個具體技術新聞事件』。相同回答 YES，不同回答 NO。只需回答 YES 或 NO。\n1: {title1}\n2: {title2}"
     try:
         response = gemini_model.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=0))
         return "YES" in response.text.upper()
@@ -213,14 +212,13 @@ def main():
         .river {{ background: var(--bg); padding: 12px; }}
         .river-title {{ font-size: 16px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 12px; padding-bottom: 4px; }}
         .story-block {{ padding: 10px 0; border-bottom: 1px solid var(--border); transition: all 0.2s; }}
-        .story-block.is-hidden {{ display: none; opacity: 0.3; }}
-        body.show-hidden .story-block.is-hidden {{ display: block !important; }}
+        .story-block.is-hidden {{ display: none !important; }}
+        body.show-hidden .story-block.is-hidden {{ display: block !important; opacity: 0.3; }}
         body.only-stars .story-block:not(.has-star) {{ display: none !important; }}
         .headline-wrapper {{ display: flex; align-items: flex-start; justify-content: space-between; }}
         .main-head {{ font-size: 14.5px; font-weight: 800; text-decoration: none; color: var(--link); }}
         .meta-line {{ font-size: 10.5px; color: var(--tag); margin-top: 3px; margin-left: 28px; }}
         .sub-news-list {{ margin: 5px 0 0 32px; border-left: 1px solid var(--border); padding-left: 10px; }}
-        .sub-item {{ font-size: 12px; margin-bottom: 2px; color: var(--text); opacity: 0.9; }}
         .badge {{ display: inline-block; padding: 1px 5px; font-size: 9px; border-radius: 3px; margin-right: 5px; font-weight: 800; color: #fff !important; }}
         .badge-x {{ background: #1da1f2 !important; }} .badge-jp {{ background: #ff5722 !important; }} .badge-kr {{ background: #303f9f !important; }} .badge-digital {{ background: #27ae60 !important; }} .badge-ithome {{ background: #d32f2f !important; }} .badge-default {{ background: #888 !important; }}
         .star-btn {{ cursor: pointer; color: #444; font-size: 16px; margin-right: 10px; }}
@@ -260,6 +258,7 @@ def main():
                 const btn = document.getElementById('toggle-hide-btn');
                 const isShowing = document.body.classList.toggle('show-hidden');
                 btn.classList.toggle('active', isShowing);
+                btn.innerText = isShowing ? '🚫' : '👁️';
             }}
             function toggleHide(h) {{
                 const el = document.getElementById('sb-'+h);
