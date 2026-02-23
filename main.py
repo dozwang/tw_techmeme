@@ -11,6 +11,7 @@ TW_TZ = pytz.timezone('Asia/Taipei')
 TZ_INFOS = {"PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific"), "JST": pytz.timezone("Asia/Tokyo"), "KST": pytz.timezone("Asia/Seoul")}
 translator = Translator()
 SITE_TITLE = "豆子版 Techmeme | 2026.v1"
+FINAL_STATS = {} # 確保全域可用
 
 def load_config():
     if os.path.exists('feeds.json'):
@@ -18,7 +19,6 @@ def load_config():
     return {"FEEDS": {"INTL": [], "JK": [], "TW": []}, "WHITELIST": [], "BLACKLIST_GENERAL": [], "BLACKLIST_TECH_RELATED": [], "TERM_MAP": {}}
 
 CONFIG = load_config()
-FINAL_STATS = {} # 用來存儲最終精準統計
 
 def translate_text(text):
     if not text: return ""
@@ -41,21 +41,35 @@ def is_blacklisted(text):
 
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.4
 
-def fetch_from_html(name, url, selector, tag_html):
+def fetch_from_html(name, url, selectors, tag_html):
+    """【強攻模式】兼容多種選擇器"""
     articles = []
+    FINAL_STATS[name] = 0 # 初始化統計
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'}
     try:
         resp = requests.get(url, headers=headers, timeout=20, verify=False)
         if resp.status_code != 200: return []
         soup = BeautifulSoup(resp.text, 'html.parser')
-        items = soup.select(selector)
+        
+        items = []
+        for sel in selectors:
+            items = soup.select(sel)
+            if items: break # 找到一個可用的選擇器就停止
+            
         for item in items[:15]:
             title = item.get_text().strip()
             link = item.get('href', '')
             if not title or len(title) < 5 or is_blacklisted(title): continue
             if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
-            articles.append({'raw_title': title, 'link': link, 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_html})
-            FINAL_STATS[name] = FINAL_STATS.get(name, 0) + 1
+            
+            articles.append({
+                'raw_title': title, 
+                'link': link, 
+                'source': name, 
+                'time': datetime.datetime.now(TW_TZ), 
+                'tag_html': tag_html
+            })
+            FINAL_STATS[name] += 1
     except: pass
     return articles
 
@@ -65,6 +79,7 @@ def fetch_data(feed_list):
     limit_time = now_utc - datetime.timedelta(hours=48)
     for item in feed_list:
         url, tag = item['url'], item['tag']
+        # 排除需要強攻的網站避免重複
         if any(x in url for x in ["cio.com.tw", "bnext.com.tw", "wsj.com"]): continue
         try:
             resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=20, verify=False)
@@ -96,24 +111,28 @@ def render_column(data, title, need_trans=False):
     return html + "</div>"
 
 def main():
-    print(">>> [1/2] 抓取資料中...")
+    print(">>> [1/2] 正在執行強攻與 RSS 抓取...")
     intl_raw = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_raw = fetch_data(CONFIG['FEEDS']['JK'])
     tw_raw = fetch_data(CONFIG['FEEDS']['TW'])
 
+    # --- 更新後的強攻名單 ---
     special_sites = [
-        ("CIO Taiwan", "https://www.cio.com.tw/category/news/", "h3.entry-title a", "[分析]"),
-        ("數位時代", "https://www.bnext.com.tw/articles", "a.item_title", "[數位]"),
-        ("WSJ Tech", "https://www.wsj.com/tech", "h3 a", "[WSJ]")
+        ("CIO Taiwan", "https://www.cio.com.tw/category/news/", ["h3.entry-title a", "h2.entry-title a", ".post-title a"], "[分析]"),
+        ("數位時代", "https://www.bnext.com.tw/articles", ["a.item_title", ".item_name a"], "[數位]"),
+        ("WSJ Tech", "https://www.wsj.com/tech", ["h3 a", "h2 a", ".wsj-headline a"], "[WSJ]")
     ]
+    
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
-    for name, url, sel, tag in special_sites:
-        arts = fetch_from_html(name, url, sel, tag)
+    for name, url, sels, tag in special_sites:
+        arts = fetch_from_html(name, url, sels, tag)
         target = intl_raw if name == "WSJ Tech" else tw_raw
         target.setdefault(today_str, []).extend(arts)
 
-    print(">>> [2/2] 產出網頁...")
+    print(">>> [2/2] 產出網頁與統計中...")
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
+    
+    # 產出統計清單，確保數字與來源對齊
     stats_list = "".join([f"<li><span style='color:{('#27ae60' if v>0 else '#e74c3c')}; font-weight:bold;'>{v}</span> - {k}</li>" for k, v in sorted(FINAL_STATS.items(), key=lambda x: x[1], reverse=True)])
 
     full_html = f"""
@@ -166,7 +185,7 @@ def main():
         </script></body></html>
     """
     with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
-    print(">>> [成功] 戰情室已更新，統計數字精確化！")
+    print(f">>> [成功] 統計清單共包含 {len(FINAL_STATS)} 個站點。")
 
 if __name__ == "__main__":
     main()
