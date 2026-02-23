@@ -9,8 +9,7 @@ if sys.platform != 'win32':
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# --- 核心配置 ---
-VERSION = "1.4.8"
+VERSION = "1.4.9"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -35,34 +34,9 @@ def translate_text(text):
     from googletrans import Translator
     try:
         res = Translator().translate(text, dest='zh-tw').text
-        term_map = CONFIG.get('TERM_MAP', {})
-        for w, r in term_map.items(): res = res.replace(w, r)
+        for w, r in CONFIG.get('TERM_MAP', {}).items(): res = res.replace(w, r)
         return res
     except: return text
-
-def ask_gemini_if_same_event(title1, title2):
-    if not client: return False
-    prompt = f"判斷標題是否描述同一技術事件，回答 YES 或 NO：\n1: {title1}\n2: {title2}"
-    try:
-        response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt)
-        return "YES" in response.text.upper()
-    except: return False
-
-def cluster_articles(articles, is_tw=False):
-    clusters = []
-    threshold = 0.30 if is_tw else 0.35
-    for art in sorted(articles, key=lambda x: x['time']):
-        pure_t = re.sub(r'【[^】]*】|\[[^\]]*\]', '', art['raw_title']).strip()
-        best_match_idx = -1
-        for idx, cluster in enumerate(clusters):
-            main_t = re.sub(r'【[^】]*】|\[[^\]]*\]', '', cluster[0]['raw_title']).strip()
-            sim = difflib.SequenceMatcher(None, main_t, pure_t).ratio()
-            if sim > 0.70: best_match_idx = idx; break
-            elif sim > threshold:
-                if ask_gemini_if_same_event(main_t, pure_t): best_match_idx = idx; break
-        if best_match_idx != -1: clusters[best_match_idx].insert(0, art)
-        else: clusters.append([art])
-    return sorted(clusters, key=lambda c: c[0]['time'], reverse=True)
 
 def fetch_data(feed_list):
     all_articles = []
@@ -81,17 +55,16 @@ def fetch_data(feed_list):
     return all_articles
 
 def main():
-    print(f"Starting {SITE_TITLE} v{VERSION}")
+    print(f"Executing {SITE_TITLE} v{VERSION}")
     intl = fetch_data(CONFIG['FEEDS']['INTL'])
     jk = fetch_data(CONFIG['FEEDS']['JK'])
     tw = fetch_data(CONFIG['FEEDS']['TW'])
     
-    def render(clusters, trans):
+    def render(articles):
         h_html = ""
-        for g in clusters:
-            m = g[0]; t = translate_text(m['raw_title']) if trans else m['raw_title']
+        for m in articles:
             hid = str(abs(hash(m['link'])))[:10]
-            h_html += f"<div class='story-block' id='sb-{hid}' data-link='{m['link']}'><div class='headline-wrapper'><span class='star-btn' onclick='toggleStar(\"{hid}\")'>★</span><a class='main-head' href='{m['link']}' target='_blank'>{t}</a><span class='btn-hide' onclick='toggleHide(\"{hid}\")'>✕</span></div><div class='meta-line'>{m['source']} | {m['time'].strftime('%H:%M')}</div></div>"
+            h_html += f"<div class='story-block' id='sb-{hid}' data-link='{m['link']}'><div class='headline-wrapper'><span class='star-btn' onclick='toggleStar(\"{hid}\")'>★</span><a class='main-head' href='{m['link']}' target='_blank'>{m['raw_title']}</a><span class='btn-hide' onclick='toggleHide(\"{hid}\")'>✕</span></div><div class='meta-line'>{m['source']} | {m['time'].strftime('%H:%M')}</div></div>"
         return h_html
 
     full_html = f"""
@@ -100,7 +73,7 @@ def main():
         :root {{ --bg: #fff; --text: #333; --link: #1a0dab; --border: #eee; }}
         @media (prefers-color-scheme: dark) {{ :root {{ --bg: #121212; --text: #e0e0e0; --link: #8ab4f8; --border: #2c2c2c; }} }}
         body {{ font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 50px; }}
-        .header {{ padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); }}
+        .header {{ padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 1000; }}
         .wrapper {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); }}
         @media (max-width: 900px) {{ .wrapper {{ grid-template-columns: 1fr; }} }}
         .river {{ background: var(--bg); padding: 15px; }}
@@ -116,9 +89,9 @@ def main():
     </style></head><body>
         <div class='header'><h1 style='margin:0; font-size:18px;'>{SITE_TITLE} v{VERSION}</h1><div><span class='btn' onclick='location.reload()'>🔄</span> <span class='btn' onclick='document.body.classList.toggle("show-hidden")'>👁️</span></div></div>
         <div class='wrapper'>
-            <div class='river'><h3>Global</h3>{render(cluster_articles(intl), True)}</div>
-            <div class='river'><h3>JK</h3>{render(cluster_articles(jk), True)}</div>
-            <div class='river'><h3>Taiwan</h3>{render(cluster_articles(tw, True), False)}</div>
+            <div class='river'><h3>Global</h3>{render(intl)}</div>
+            <div class='river'><h3>JK</h3>{render(jk)}</div>
+            <div class='river'><h3>Taiwan</h3>{render(tw)}</div>
         </div>
         <script>
             function toggleHide(h) {{
@@ -145,7 +118,7 @@ def main():
         </script></body></html>
     """
     with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
-    print("Done writing index.html")
+    print("Generation Success.")
 
 if __name__ == "__main__":
     main()
