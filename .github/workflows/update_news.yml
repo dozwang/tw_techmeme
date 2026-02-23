@@ -6,14 +6,16 @@ on:
   workflow_dispatch: 
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -29,14 +31,16 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python main.py
-          touch .nojekyll
-          # 檢查檔案是否存在，防止空部署
-          ls -al index.html
+          # 建立部署用的目錄並把 index.html 移進去
+          mkdir _site
+          cp index.html _site/
+          touch _site/.nojekyll
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './_site'
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .  # 部署當前目錄
-          publish_branch: gh-pages
-          force_orphan: false # 改回 false，避免每次都清空分支造成 404
+        id: deployment
+        uses: actions/deploy-pages@v4
