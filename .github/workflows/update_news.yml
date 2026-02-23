@@ -1,9 +1,9 @@
-name: 豆子新聞戰情室 # GitHub Action 顯示的流程名稱
+name: 豆子新聞戰情室
 
 on:
   schedule:
-    - cron: '0 */4 * * *' # 每 4 小時自動執行
-  workflow_dispatch: # 允許手動執行
+    - cron: '0 */4 * * *'
+  workflow_dispatch: 
 
 jobs:
   build:
@@ -15,11 +15,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.11' # 升級到 3.11 解決 Google 套件警告
 
       - name: Install dependencies
         run: |
-          pip install feedparser googletrans==4.0.0-rc1 pytz requests beautifulsoup4 python-dateutil google-generativeai
+          pip install feedparser googletrans==4.0.0-rc1 pytz requests beautifulsoup4 python-dateutil google-genai
 
       - name: Run Scraper
         env:
@@ -32,3 +32,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
           publish_branch: gh-pages
+          force_orphan: true # 強制覆蓋舊版，解決 Pages 不更新問題
