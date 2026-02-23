@@ -28,10 +28,12 @@ jobs:
       run: python main.py
 
     - name: Commit and Push changes
-    # 抓取完會產生 index.html，這個步驟會自動把它推送到 GitHub
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add index.html
+        # 嘗試 commit，如果沒有檔案變動就跳過
         git commit -m "自動更新新聞: $(date)" || exit 0
-        git push
+        # 【關鍵】先拉取遠端變更並使用 rebase 模式，避免衝突
+        git pull --rebase origin main
+        git push origin main
