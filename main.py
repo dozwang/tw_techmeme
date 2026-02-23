@@ -7,7 +7,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 版本資訊 ---
-VERSION = "1.1.3"
+VERSION = "1.1.5"
 SITE_TITLE = f"豆子版 Techmeme | v{VERSION}"
 
 TW_TZ = pytz.timezone('Asia/Taipei')
@@ -47,13 +47,12 @@ def is_blacklisted(text):
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.4
 
 def clean_x_title(text):
-    """徹底移除連結與網域後綴"""
     text = re.sub(r'https?://\S+', '', text)
     text = re.sub(r'\s\S+\.(com|org|net|me|gov|io|edu|tv)(\/\S*)?\s?$', '', text)
     return text.strip().rstrip(' ;:,.')
 
 def badge_styler(tag_str):
-    """為來源標籤生成有質感的膠囊樣式"""
+    """【v1.1.5 新增】日韓專屬標籤顏色與多標籤渲染"""
     if not tag_str: return ""
     clean_tags = re.findall(r'\[(.*?)\]', tag_str)
     badges = ""
@@ -64,7 +63,8 @@ def badge_styler(tag_str):
         elif "資安" in t: cls = "badge-sec"
         elif "醫療" in t: cls = "badge-med"
         elif "WSJ" in t: cls = "badge-wsj"
-        elif "日" in t: cls = "badge-jp"
+        elif "日" in t: cls = "badge-jp"     # 日本標籤
+        elif "韓" in t: cls = "badge-kr"     # 韓國標籤
         elif "數位" in t: cls = "badge-digital"
         badges += f'<span class="badge {cls}">{t}</span>'
     return badges
@@ -72,7 +72,9 @@ def badge_styler(tag_str):
 def fetch_from_html(name, url, selectors, tag_html, item_tags_selector=None):
     articles = []
     FINAL_STATS[name] = 0
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+    }
     try:
         resp = requests.get(url, headers=headers, timeout=25, verify=False)
         if resp.status_code != 200:
@@ -83,15 +85,26 @@ def fetch_from_html(name, url, selectors, tag_html, item_tags_selector=None):
             items = soup.select(sel)
             if items: break
         for item in items[:15]:
-            title = item.get_text().strip()
-            link = item.get('href', '')
+            # 針對數位時代的特殊處理：找到 item_title 內的連結
+            title_tag = item.select_one('.item_title, h3, a') if name == "數位時代" else item
+            if not title_tag: continue
+            
+            link_tag = title_tag if title_tag.name == 'a' else title_tag.find('a')
+            if not link_tag: continue
+            
+            title = link_tag.get_text().strip()
+            link = link_tag.get('href', '')
+            
             if not title or len(title) < 5 or is_blacklisted(title): continue
             if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
+            
             item_tags = ""
             if item_tags_selector:
-                parent = item.find_parent()
+                # 往上回朔找容器中的分類標籤
+                parent = item.find_parent(class_=re.compile(r'item|box|card')) or item.parent
                 tag_el = parent.select_one(item_tags_selector) if parent else None
                 if tag_el: item_tags = tag_el.get_text().strip()
+
             articles.append({'raw_title': title, 'link': link, 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_html, 'item_tags': item_tags})
             FINAL_STATS[name] += 1
         DIAGNOSTIC_LOGS.append(f"✅ {name}: 抓取成功 ({FINAL_STATS[name]} 則)")
@@ -106,6 +119,8 @@ def fetch_data(feed_list):
     for item in feed_list:
         url, tag = item['url'], item['tag']
         is_x = "nitter" in url.lower()
+        # 跳過 RSS 抓不到的站點
+        if any(x in url for x in ["cio.com.tw", "bnext.com.tw"]): continue
         try:
             resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=20, verify=False)
             feed = feedparser.parse(resp.content)
@@ -131,6 +146,7 @@ def fetch_data(feed_list):
 def render_column(data, title, need_trans=False):
     html = f"<div class='river'><div class='river-title'>{title}</div>"
     sorted_dates = sorted(data.keys(), reverse=True)
+    if not sorted_dates: html += "<div style='color:#888; padding:20px;'>區間內無更新</div>"
     for d_str in sorted_dates:
         html += f"<div class='date-header'>{d_str}</div>"
         for art in data[d_str]:
@@ -153,13 +169,15 @@ def render_column(data, title, need_trans=False):
     return html + "</div>"
 
 def main():
+    print(f">>> [v{VERSION}] 啟動深度抓取與標籤顯色...")
     intl_raw = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_raw = fetch_data(CONFIG['FEEDS']['JK'])
     tw_raw = fetch_data(CONFIG['FEEDS']['TW'])
     
+    # --- 強攻選擇器優化 (針對 2026 版) ---
     special_sites = [
-        ("CIO Taiwan", "https://www.cio.com.tw/category/news/", ["h3.entry-title a"], "[分析]", ".category-label"),
-        ("數位時代", "https://www.bnext.com.tw/articles", ["a.item_title"], "[數位]", ".item_tag")
+        ("CIO Taiwan", "https://www.cio.com.tw/category/it-strategy/", ["h3 a", ".entry-title a"], "[分析]", ".category-label"),
+        ("數位時代", "https://www.bnext.com.tw/articles", [".item_box", ".post_item"], "[數位]", ".item_tag")
     ]
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
     for name, url, sels, tag, tag_sel in special_sites:
@@ -181,19 +199,23 @@ def main():
         @media (max-width: 900px) {{ .wrapper {{ grid-template-columns: 1fr; }} }}
         .river {{ background: var(--bg); padding: 14px; }}
         .river-title {{ font-size: 18px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 15px; }}
-        .date-header {{ background: #444; color: #fff; padding: 2px 8px; font-size: 10px; margin: 12px 0 6px; border-radius: 4px; display: inline-block; }}
+        .date-header {{ background: #444; color: #fff; padding: 2px 8px; font-size: 10px; margin: 12px 0 6px; border-radius: 4px; display: inline-block; font-weight:bold; }}
         .story-block {{ padding: 12px 0; border-bottom: 1px solid var(--border); }}
         .headline {{ color: var(--link); text-decoration: none; font-size: 15px; font-weight: 600; line-height: 1.4; }}
         .meta-line {{ font-size: 11px; color: var(--tag); margin-top: 5px; margin-left: 28px; }}
         .story-tags {{ font-style: italic; color: var(--tag); }}
+        
+        /* 膠囊標籤 v1.1.5 版 */
         .badge {{ display: inline-block; padding: 1px 6px; font-size: 10px; border-radius: 4px; margin-right: 6px; font-weight: 800; line-height: 16px; white-space: nowrap; height: 18px; align-self: flex-start; margin-top: 2px; }}
         .badge-x {{ background: #1da1f2 !important; color: #fff !important; }}
         .badge-analysis {{ background: #673ab7 !important; color: #fff !important; }}
         .badge-sec {{ background: #e91e63 !important; color: #fff !important; }}
         .badge-wsj {{ background: #333 !important; color: #fff !important; }}
-        .badge-jp {{ background: #ff5722 !important; color: #fff !important; }}
+        .badge-jp {{ background: #ff5722 !important; color: #fff !important; }} /* 日本: 橘紅 */
+        .badge-kr {{ background: #303f9f !important; color: #fff !important; }} /* 韓國: 深藍 */
         .badge-digital {{ background: #27ae60 !important; color: #fff !important; }}
         .badge-default {{ background: #888; color: #fff; }}
+
         .star-btn {{ cursor: pointer; color: #ddd; font-size: 18px; margin-right: 10px; float: left; }}
         .star-btn.active {{ color: #f1c40f; }}
         .kw-highlight {{ color: var(--kw); font-weight: bold; background: #ff980015; }}
