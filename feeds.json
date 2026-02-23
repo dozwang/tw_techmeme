@@ -30,9 +30,7 @@
       {"url": "https://www.sbbit.jp/rss/Special.rss", "tag": "[日]"},
       {"url": "https://www.sbbit.jp/rss/HotTopics.rss", "tag": "[日]"},
       {"url": "https://nitter.net/zdnetjapan/rss", "tag": "[日][X]"},
-      {"url": "https://nitter.net/gigazine/rss", "tag": "[日]"},
       {"url": "https://nitter.net/impress_watch/rss", "tag": "[日][X]"},
-      {"url": "https://nitter.net/asciijpeditors/rss", "tag": "[日][X]"},
       {"url": "https://nitter.net/itmedia_news/rss", "tag": "[日][X]"}
     ],
     "TW": [
@@ -48,11 +46,11 @@
   },
   "BLACKLIST_GENERAL": [
     "外交", "考古", "疫苗", "關稅", "經貿", "運動", "娛樂", "影劇", "天氣", 
-    "選舉", "政治", "社會新聞", "RFK", "殺蟲劑", "建築" ,"生技"
+    "選舉", "政治", "社會新聞", "RFK", "殺蟲劑", "建築", "生技", "基因", "恐龍", "登月", "火星", "稀土", "國稅"
   ],
   "BLACKLIST_TECH_RELATED": [
     "暗物質", "哈伯望遠鏡", "韋伯望遠鏡", "黑洞", "銀河系", "天文", "量子力學", 
-    "元宇宙", "NFT", "閱讀器", "三星手機", "RAZR", "XBOX", "NASA"
+    "元宇宙", "NFT", "閱讀器", "三星手機", "RAZR", "XBOX", "NASA", "Pixel", "Galaxy"
   ],
   "WHITELIST": [
     "AI", "Copilot", "SaaS", "生成式AI", "雲原生", "軟體開發", "CIO", "CISO", 
