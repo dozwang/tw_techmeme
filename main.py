@@ -6,8 +6,7 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# --- 版本資訊 ---
-VERSION = "1.2.4"
+VERSION = "1.2.9"
 SITE_TITLE = f"豆子版 Techmeme | v{VERSION}"
 
 TW_TZ = pytz.timezone('Asia/Taipei')
@@ -15,7 +14,11 @@ TZ_INFOS = {"PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific
 translator = Translator()
 FINAL_STATS = {}
 
-NOISE_WORDS = ["快訊", "獨家", "Breaking", "Live", "Update", "更新", "最新", "直擊", "影", "圖", "報導", "Exclusive"]
+NOISE_WORDS = [
+    "快訊", "獨家", "Breaking", "Live", "Update", "更新", "最新", "直擊", "影", "圖", "報導", 
+    "Exclusive", "發送提示", "點我看", "懶人包", "必讀", "完整清單", "轉貼", "整理", "推薦", 
+    "清單", "攻略", "持續更新", "秒懂", "精選"
+]
 
 def load_config():
     if os.path.exists('feeds.json'):
@@ -84,49 +87,57 @@ def fetch_data(feed_list):
                 try: p_date = date_parser.parse(raw_date, tzinfos=TZ_INFOS).astimezone(TW_TZ)
                 except: p_date = now_tw
                 if p_date < limit_time: continue
-                
-                keywords = []
-                if 'tags' in entry: keywords = [t.term for t in entry.tags if t.term]
-                elif 'category' in entry: keywords = [entry.category]
-                
-                all_articles.append({
-                    'raw_title': title, 'link': entry.link, 'source': s_name, 
-                    'time': p_date, 'tag_html': tag, 'item_tags': " / ".join(keywords[:2])
-                })
+                all_articles.append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date, 'tag_html': tag})
                 FINAL_STATS[s_name] += 1
         except: continue
     return all_articles
 
 def get_pure_title(title):
     temp = title
+    temp = re.sub(r'【[^】]*】', '', temp)
+    temp = re.sub(r'\[[^\]]*\]', '', temp)
     for noise in NOISE_WORDS:
-        temp = temp.replace(f"【{noise}】", "").replace(f"[{noise}]", "").replace(noise, "")
+        temp = temp.replace(noise, "")
+    temp = re.sub(r'\s+', '', temp)
     return temp.strip()
 
 def cluster_articles(articles):
+    """【v1.2.9】全場海選 + 軟體開發關鍵字權重紅利"""
     clusters = []
-    for art in sorted(articles, key=lambda x: x['time'], reverse=True):
-        found = False
+    soft_kw = set(CONFIG.get('WHITELIST', []))
+    
+    for art in sorted(articles, key=lambda x: x['time']):
         pure_art_title = get_pure_title(art['raw_title'])
-        for cluster in clusters:
-            is_match = any(difflib.SequenceMatcher(None, get_pure_title(item['raw_title']), pure_art_title).ratio() > 0.33 for item in cluster)
-            if is_match:
-                cluster.append(art)
-                found = True
-                break
-        if not found:
+        best_match_idx = -1
+        max_sim = 0
+        
+        for idx, cluster in enumerate(clusters):
+            main_title = get_pure_title(cluster[0]['raw_title'])
+            sim = difflib.SequenceMatcher(None, main_title, pure_art_title).ratio()
+            
+            # 【關鍵字紅利邏輯】：如果兩標題都包含軟體開發關鍵字，提升相似度
+            shared_kws = [kw for kw in soft_kw if kw in main_title and kw in pure_art_title]
+            if shared_kws:
+                sim += 0.15 # 給予 15% 的相似度紅利
+            
+            if sim > 0.48 and sim > max_sim:
+                max_sim = sim
+                best_match_idx = idx
+        
+        if best_match_idx != -1:
+            clusters[best_match_idx].insert(0, art) # 新鮮新聞篡位
+        else:
             clusters.append([art])
-    return clusters
+    
+    return sorted(clusters, key=lambda c: c[0]['time'], reverse=True)
 
 def render_clustered_html(clusters, need_trans=False):
     html = ""
     for group in clusters:
         main = group[0]
         display_title = highlight_keywords(translate_text(main['raw_title']) if need_trans else main['raw_title'])
-        display_tags = translate_text(main['item_tags']) if (need_trans and main['item_tags']) else main['item_tags']
         badges = badge_styler(main['tag_html'])
         link_hash = str(abs(hash(main['link'])))[:10]
-        tags_part = f"<span class='story-tags'>{display_tags}</span> · " if display_tags else ""
         time_str = main['time'].strftime('%m/%d %H:%M')
         
         html += f"""
@@ -137,7 +148,7 @@ def render_clustered_html(clusters, need_trans=False):
                     {badges}<a class='headline main-head' href='{main['link']}' target='_blank'>{display_title}</a>
                 </div>
             </div>
-            <div class='meta-line'>{tags_part}{main['source']} | {time_str}</div>
+            <div class='meta-line'>{main['source']} | {time_str}</div>
         """
         if len(group) > 1:
             html += "<div class='sub-news-list'>"
@@ -154,15 +165,15 @@ def render_clustered_html(clusters, need_trans=False):
 
 def main():
     now_tw_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
-    print(f">>> [v{VERSION}] 更新數位時代 X 來源並同步時區...")
+    print(f">>> [v{VERSION}] 軟體開發加重聚合模式...")
     
     intl_list = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_list = fetch_data(CONFIG['FEEDS']['JK'])
     tw_list = fetch_data(CONFIG['FEEDS']['TW'])
     
     special_sites = [
-        ("CIO Taiwan", "https://www.cio.com.tw/category/it-strategy/", ["h3 a", ".entry-title a"], "[分析]", ".category-label"),
-        ("數位時代", "https://www.bnext.com.tw/articles", [".item_box", ".post_item"], "[數位]", ".item_tag")
+        ("CIO Taiwan", "https://www.cio.com.tw/category/it-strategy/", ["h3 a"], "[分析]", ""),
+        ("數位時代", "https://www.bnext.com.tw/articles", [".item_box", ".post_item"], "[數位]", "")
     ]
     for name, url, sels, tag, tag_sel in special_sites:
         try:
@@ -176,14 +187,7 @@ def main():
                 title_tag = item.select_one('.item_title, h3, a') if name == "數位時代" else item
                 link_tag = title_tag if title_tag and title_tag.name == 'a' else (title_tag.find('a') if title_tag else None)
                 if not link_tag: continue
-                title = link_tag.get_text().strip()
-                if is_blacklisted(title): continue
-                link = link_tag.get('href', '')
-                if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
-                tw_list.append({
-                    'raw_title': title, 'link': link, 'source': name, 
-                    'time': datetime.datetime.now(TW_TZ), 'tag_html': tag, 'item_tags': ""
-                })
+                tw_list.append({'raw_title': link_tag.get_text().strip(), 'link': link_tag.get('href', ''), 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag})
         except: pass
 
     intl_groups = cluster_articles(intl_list)
@@ -204,7 +208,7 @@ def main():
         .river {{ background: var(--bg); padding: 14px; }}
         .river-title {{ font-size: 18px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 15px; }}
         .story-block {{ padding: 15px 0; border-bottom: 1px solid var(--border); }}
-        .main-head {{ font-size: 16px; font-weight: 800; text-decoration: none; color: var(--link); }}
+        .main-head {{ font-size: 15px; font-weight: 800; text-decoration: none; color: var(--link); }}
         .meta-line {{ font-size: 11px; color: var(--tag); margin-top: 5px; margin-left: 28px; }}
         .sub-news-list {{ margin: 8px 0 0 45px; border-left: 2px solid var(--border); padding-left: 12px; }}
         .sub-item {{ font-size: 13px; margin-bottom: 4px; color: var(--text); }}
@@ -212,21 +216,14 @@ def main():
         .sub-meta {{ font-size: 10px; color: var(--tag); }}
         .badge {{ display: inline-block; padding: 1px 6px; font-size: 10px; border-radius: 4px; margin-right: 6px; font-weight: 800; white-space: nowrap; height: 18px; margin-top: 2px; }}
         .badge-x {{ background: #1da1f2 !important; color: #fff !important; }}
-        .badge-jp {{ background: #ff5722 !important; color: #fff !important; }}
-        .badge-kr {{ background: #303f9f !important; color: #fff !important; }}
         .badge-digital {{ background: #27ae60 !important; color: #fff !important; }}
         .star-btn {{ cursor: pointer; color: #ddd; font-size: 18px; margin-right: 10px; float: left; }}
         .star-btn.active {{ color: #f1c40f; }}
         .kw-highlight {{ color: var(--kw); font-weight: bold; background: #ff980015; }}
         .btn {{ cursor: pointer; padding: 5px 12px; border: 1px solid var(--text); font-size: 11px; border-radius: 6px; background: var(--bg); color: var(--text); font-weight: bold; }}
-        .update-time {{ font-size: 10px; color: var(--tag); margin-left: 10px; }}
     </style></head><body>
         <div class='header'><h1 style='margin:0; font-size:20px;'>{SITE_TITLE}</h1>
-        <div>
-            <span class='update-time'>最後更新: {now_tw_str}</span>
-            <span class='btn' onclick='toggleStats()'>📊 統計</span> 
-            <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span>
-        </div></div>
+        <div><span style='font-size:10px; color:var(--tag); margin-right:10px;'>{now_tw_str}</span> <span class='btn' onclick='toggleStats()'>📊 統計</span> <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span></div></div>
         <div id='stats-panel' style='display:none; padding:15px; background:#8882; border-bottom:1px solid var(--border);'><ul style='column-count:3; list-style:none; padding:0; margin:0; font-size:11px;'>{stats_list}</ul></div>
         <div class='wrapper'>
             <div class='river'><div class='river-title'>Global Strategy</div>{render_clustered_html(intl_groups, True)}</div>
