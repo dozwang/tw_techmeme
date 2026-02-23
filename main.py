@@ -7,14 +7,13 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 版本資訊 ---
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 SITE_TITLE = f"豆子版 Techmeme | v{VERSION}"
 
 TW_TZ = pytz.timezone('Asia/Taipei')
 TZ_INFOS = {"PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific"), "JST": pytz.timezone("Asia/Tokyo"), "KST": pytz.timezone("Asia/Seoul")}
 translator = Translator()
 FINAL_STATS = {}
-DIAGNOSTIC_LOGS = []
 
 def load_config():
     if os.path.exists('feeds.json'):
@@ -64,42 +63,12 @@ def badge_styler(tag_str):
         badges += f'<span class="badge {cls}">{t}</span>'
     return badges
 
-def fetch_from_html(name, url, selectors, tag_html, item_tags_selector=None):
-    articles = []
-    FINAL_STATS[name] = 0
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    try:
-        resp = requests.get(url, headers=headers, timeout=25, verify=False)
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        items = []
-        for sel in selectors:
-            items = soup.select(sel)
-            if items: break
-        for item in items[:15]:
-            title_tag = item.select_one('.item_title, h3, a') if name == "數位時代" else item
-            link_tag = title_tag if title_tag and title_tag.name == 'a' else (title_tag.find('a') if title_tag else None)
-            if not link_tag: continue
-            title = link_tag.get_text().strip()
-            link = link_tag.get('href', '')
-            if not title or len(title) < 5 or is_blacklisted(title): continue
-            if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
-            item_tags = ""
-            if item_tags_selector:
-                parent = item.find_parent(class_=re.compile(r'item|box|card')) or item.parent
-                tag_el = parent.select_one(item_tags_selector) if parent else None
-                if tag_el: item_tags = tag_el.get_text().strip()
-            articles.append({'raw_title': title, 'link': link, 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_html, 'item_tags': item_tags})
-            FINAL_STATS[name] += 1
-    except: pass
-    return articles
-
 def fetch_data(feed_list):
     all_articles = []
     now_utc = datetime.datetime.now(pytz.utc)
     limit_time = now_utc - datetime.timedelta(hours=96)
     for item in feed_list:
         url, tag = item['url'], item['tag']
-        if any(x in url for x in ["cio.com.tw", "bnext.com.tw"]): continue
         try:
             resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=20, verify=False)
             feed = feedparser.parse(resp.content)
@@ -127,15 +96,14 @@ def fetch_data(feed_list):
     return all_articles
 
 def cluster_articles(articles):
-    """【核心】新聞聚合算法：標題相似度大於 45% 則合併"""
+    """【v1.2.1 強化】將相似度門檻調至 0.33，並採多重比對，增加聚合感"""
     clusters = []
     for art in sorted(articles, key=lambda x: x['time'], reverse=True):
         found = False
         for cluster in clusters:
-            main_art = cluster[0]
-            # 計算標題相似度 (針對中文與英文特化)
-            sim = difflib.SequenceMatcher(None, main_art['raw_title'], art['raw_title']).ratio()
-            if sim > 0.45:
+            # 只要跟群組內的任何一則新聞相似度 > 0.33，就加入
+            is_match = any(difflib.SequenceMatcher(None, item['raw_title'], art['raw_title']).ratio() > 0.33 for item in cluster)
+            if is_match:
                 cluster.append(art)
                 found = True
                 break
@@ -147,7 +115,6 @@ def render_clustered_html(clusters, need_trans=False):
     html = ""
     for group in clusters:
         main = group[0]
-        # 主標題處理
         display_title = highlight_keywords(translate_text(main['raw_title']) if need_trans else main['raw_title'])
         display_tags = translate_text(main['item_tags']) if (need_trans and main['item_tags']) else main['item_tags']
         badges = badge_styler(main['tag_html'])
@@ -165,32 +132,26 @@ def render_clustered_html(clusters, need_trans=False):
             </div>
             <div class='meta-line'>{tags_part}{main['source']} | {time_str}</div>
         """
-        # 副標題 (聚合的新聞)
         if len(group) > 1:
             html += "<div class='sub-news-list'>"
+            # 過濾掉跟主標題完全一樣的連結
+            seen_links = {main['link']}
             for sub in group[1:]:
+                if sub['link'] in seen_links: continue
                 sub_title = translate_text(sub['raw_title']) if need_trans else sub['raw_title']
                 sub_time = sub['time'].strftime('%H:%M')
                 html += f"<div class='sub-item'>• <a href='{sub['link']}' target='_blank'>{sub_title}</a> <span class='sub-meta'>({sub['source']} {sub_time})</span></div>"
+                seen_links.add(sub['link'])
             html += "</div>"
-        
         html += "</div>"
     return html
 
 def main():
-    print(f">>> [v{VERSION}] 執行聚合抓取...")
+    print(f">>> [v{VERSION}] 精煉來源並強化聚合...")
     intl_list = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_list = fetch_data(CONFIG['FEEDS']['JK'])
     tw_list = fetch_data(CONFIG['FEEDS']['TW'])
     
-    # 強攻站點
-    special_sites = [
-        ("CIO Taiwan", "https://www.cio.com.tw/category/it-strategy/", ["h3 a", ".entry-title a"], "[分析]", ".category-label"),
-        ("數位時代", "https://www.bnext.com.tw/articles", [".item_box", ".post_item"], "[數位]", ".item_tag")
-    ]
-    for name, url, sels, tag, tag_sel in special_sites:
-        tw_list.extend(fetch_from_html(name, url, sels, tag, tag_sel))
-
     # 執行聚合
     intl_groups = cluster_articles(intl_list)
     jk_groups = cluster_articles(jk_list)
