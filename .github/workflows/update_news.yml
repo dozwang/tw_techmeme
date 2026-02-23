@@ -1,40 +1,34 @@
-name: 豆子戰情室自動更新
+name: 豆子新聞戰情室 # GitHub Action 顯示的流程名稱
 
 on:
   schedule:
-    # 每 4 小時自動跑一次 (UTC 時間，換算台灣時間約 02:00, 06:00, 10:00...)
-    - cron: '0 */4 * * *'
-  workflow_dispatch: # 允許你手動點擊按鈕執行
+    - cron: '0 */4 * * *' # 每 4 小時自動執行
+  workflow_dispatch: # 允許手動執行
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 檢出程式碼
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: 設定 Python 環境
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - name: 安裝必要套件
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          # googletrans 3.1.0a0 是目前在 Actions 環境中最穩定的版本
-          pip install feedparser googletrans==3.1.0a0 pytz python-dateutil requests beautifulsoup4 urllib3
+          pip install feedparser googletrans==4.0.0-rc1 pytz requests beautifulsoup4 python-dateutil google-generativeai
 
-      - name: 執行新聞抓取 (main.py)
+      - name: Run Scraper
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
 
-      - name: 提交並推送更新 (解決衝突版)
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add index.html
-          # 如果沒有檔案變動，則跳過 commit
-          git commit -m "自動更新新聞: $(date)" || exit 0
-          # 使用 rebase 模式拉取，避免你手動改 code 後機器人推不上去
-          git pull --rebase origin main
-          git push origin main
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          publish_branch: gh-pages
