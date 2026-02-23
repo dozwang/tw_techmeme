@@ -4,9 +4,7 @@
       {"url": "https://stratechery.com/feed/", "tag": "[分析]"},
       {"url": "https://www.theregister.com/headlines.atom", "tag": ""},
       {"url": "https://siliconangle.com/feed/", "tag": ""},
-      {"url": "https://techcrunch.com/feed/", "tag": ""},
       {"url": "https://www.theverge.com/rss/partner/techmeme-full", "tag": ""},
-      {"url": "https://www.wired.com/feed/rss", "tag": ""},
       {"url": "https://feeds.bloomberg.com/technology/news.rss", "tag": ""},
       {"url": "https://feeds.arstechnica.com/arstechnica/index/", "tag": ""},
       {"url": "https://9to5google.com/feed/", "tag": ""},
@@ -20,7 +18,6 @@
       {"url": "https://www.wsj.com/xml/rss/3_7455.xml", "tag": "[WSJ]"},
       {"url": "https://www.healthcareitnews.com/rss", "tag": "[醫療]"},
       {"url": "https://thefinanser.com/feed", "tag": "[分析]"},
-      {"url": "https://nitter.net/verge/rss", "tag": "[X]"},
       {"url": "https://nitter.net/TechTarget/rss", "tag": "[X]"},
       {"url": "https://nitter.net/BleepinComputer/rss", "tag": "[資安][X]"},
       {"url": "https://nitter.net/HealthITNews/rss", "tag": "[醫療][X]"},
@@ -28,12 +25,10 @@
       {"url": "https://nitter.net/Techmeme/rss", "tag": "[X]"}
     ],
     "JK": [
-      {"url": "https://asia.nikkei.com/rss/feed/nar", "tag": ""},
-      {"url": "http://rss.etnews.com/03.xml", "tag": ""},
-      {"url": "https://xtech.nikkei.com/rss/index.rdf", "tag": ""},
-      {"url": "https://japan.zdnet.com/rss/news/index.rdf", "tag": "[日]"},
-      {"url": "https://www.sbbit.jp/rss/Special.rss", "tag": ""},
-      {"url": "https://www.sbbit.jp/rss/HotTopics.rss", "tag": ""},
+      {"url": "http://rss.etnews.com/03.xml", "tag": "[韓]"},
+      {"url": "https://xtech.nikkei.com/rss/index.rdf", "tag": "[日]"},
+      {"url": "https://www.sbbit.jp/rss/Special.rss", "tag": "[日]"},
+      {"url": "https://www.sbbit.jp/rss/HotTopics.rss", "tag": "[日]"},
       {"url": "https://nitter.net/zdnetjapan/rss", "tag": "[日][X]"},
       {"url": "https://nitter.net/gigazine/rss", "tag": "[日]"},
       {"url": "https://nitter.net/impress_watch/rss", "tag": "[日][X]"},
@@ -46,7 +41,6 @@
       {"url": "https://www.digitimes.com.tw/rss/news.xml", "tag": ""},
       {"url": "https://www.cio.com.tw/feed/", "tag": "[分析]"},
       {"url": "https://www.bnext.com.tw/rss", "tag": "[數位]"},
-      {"url": "https://meet.bnext.com.tw/rss/articles", "tag": "[創業]"},
       {"url": "https://nitter.net/ithome/rss", "tag": "[X]"},
       {"url": "https://nitter.net/bnext_official/rss", "tag": "[數位][X]"},
       {"url": "https://nitter.net/CIO_Taiwan/rss", "tag": "[分析][X]"}
@@ -54,7 +48,7 @@
   },
   "BLACKLIST_GENERAL": [
     "外交", "考古", "疫苗", "關稅", "經貿", "運動", "娛樂", "影劇", "天氣", 
-    "選舉", "政治", "社會新聞", "RFK", "殺蟲劑", "建築"
+    "選舉", "政治", "社會新聞", "RFK", "殺蟲劑", "建築" ,"生技"
   ],
   "BLACKLIST_TECH_RELATED": [
     "暗物質", "哈伯望遠鏡", "韋伯望遠鏡", "黑洞", "銀河系", "天文", "量子力學", 
