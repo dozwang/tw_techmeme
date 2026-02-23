@@ -1,6 +1,7 @@
 import feedparser, datetime, pytz, os, difflib, requests, json, re, time, random
 from dateutil import parser as date_parser
 from googletrans import Translator
+from bs4 import BeautifulSoup
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -22,13 +23,11 @@ def translate_text(text):
     if not text: return ""
     try:
         res = translator.translate(text, dest='zh-tw').text
-        # 套用自定義詞彙對照表
         term_map = CONFIG.get('TERM_MAP', {})
         for wrong, right in term_map.items():
             res = res.replace(wrong, right)
         return res
-    except:
-        return text
+    except: return text
 
 def highlight_keywords(text):
     for kw in CONFIG.get('WHITELIST', []):
@@ -42,21 +41,39 @@ def is_blacklisted(text):
 
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.4
 
-def fetch_with_session(url):
-    """【破蛋大絕】使用 Session 與 模擬標頭繞過 Cloudflare 等封鎖"""
-    session = requests.Session()
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'application/rss+xml,application/xml;q=0.9,text/xml,*/*;q=0.8',
-        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Referer': 'https://www.google.com/'
-    }
+# --- 【強攻模式】直接解析網頁 HTML ---
+def fetch_from_html(name, url, selector, tag_html):
+    articles = []
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'}
     try:
-        time.sleep(random.uniform(0.5, 1.2))
-        resp = session.get(url, headers=headers, timeout=20, verify=False)
-        return resp
+        time.sleep(random.uniform(1, 2))
+        resp = requests.get(url, headers=headers, timeout=20, verify=False)
+        if resp.status_code != 200: return [], 0
+        
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        items = soup.select(selector)
+        count = 0
+        for item in items[:15]:
+            title = item.get_text().strip()
+            link = item.get('href', '')
+            if not title or len(title) < 5 or is_blacklisted(title): continue
+            
+            # 補全相對路徑
+            if link.startswith('/'):
+                base = "/".join(url.split('/')[:3])
+                link = base + link
+            
+            articles.append({
+                'raw_title': title,
+                'link': link,
+                'source': name,
+                'time': datetime.datetime.now(TW_TZ), 
+                'tag_html': tag_html
+            })
+            count += 1
+        return articles, count
     except:
-        return None
+        return [], 0
 
 def fetch_data(feed_list):
     data_by_date, stats, seen = {}, {}, []
@@ -64,43 +81,35 @@ def fetch_data(feed_list):
     limit_time = now_utc - datetime.timedelta(hours=48)
     for item in feed_list:
         url, tag = item['url'], item['tag']
+        # 跳過已知失效或需要強攻的 RSS 網址
+        if "cio.com.tw" in url or "bnext.com.tw" in url or "wsj.com" in url: continue
+        
         try:
-            resp = fetch_with_session(url)
-            if not resp or resp.status_code != 200: continue
+            session = requests.Session()
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'}
+            resp = session.get(url, headers=headers, timeout=20, verify=False)
             feed = feedparser.parse(resp.content)
             s_name = feed.feed.title if 'title' in feed.feed else url.split('/')[2]
             s_name = s_name.split('|')[0].split('-')[0].strip()[:18]
             stats[s_name] = 0
             for entry in feed.entries[:20]:
                 title = entry.title.strip()
-                # 執行黑名單與重複過濾
                 if is_blacklisted(title) or any(is_similar(title, s) for s in seen): continue
-                
                 raw_date = entry.get('published', entry.get('pubDate', entry.get('updated', None)))
                 try: p_date = date_parser.parse(raw_date, tzinfos=TZ_INFOS).astimezone(pytz.utc)
                 except: p_date = now_utc
-                
                 if p_date < limit_time: continue
-                
                 p_date_tw = p_date.astimezone(TW_TZ)
                 date_str = p_date_tw.strftime('%Y-%m-%d')
-                data_by_date.setdefault(date_str, []).append({
-                    'raw_title': title, 
-                    'link': entry.link, 
-                    'source': s_name, 
-                    'time': p_date_tw, 
-                    'tag_html': tag
-                })
+                data_by_date.setdefault(date_str, []).append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date_tw, 'tag_html': tag})
                 seen.append(title); stats[s_name] += 1
-        except:
-            continue
+        except: continue
     return data_by_date, stats, seen
 
 def render_column(data, title, need_trans=False):
     html = f"<div class='river'><div class='river-title'>{title}</div>"
     sorted_dates = sorted(data.keys(), reverse=True)
-    if not sorted_dates: 
-        html += "<div style='color:#888; padding:20px;'>今日暫無更新</div>"
+    if not sorted_dates: html += "<div style='color:#888; padding:20px;'>今日暫無更新</div>"
     for d_str in sorted_dates:
         html += f"<div class='date-header'>{d_str}</div>"
         for art in data[d_str]:
@@ -118,20 +127,33 @@ def render_column(data, title, need_trans=False):
     return html + "</div>"
 
 def main():
-    print(">>> [1/2] 啟動戰情室資料抓取與分類...", flush=True)
+    print(">>> [1/2] 啟動 RSS + HTML 強攻模式...", flush=True)
     intl_raw, intl_st, _ = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_raw, jk_st, _ = fetch_data(CONFIG['FEEDS']['JK'])
     tw_raw, tw_st, _ = fetch_data(CONFIG['FEEDS']['TW'])
 
-    print(">>> [2/2] 生成介面與執行翻譯...", flush=True)
-    now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
+    # --- HTML 強攻名單 ---
+    special_sites = [
+        ("CIO Taiwan", "https://www.cio.com.tw/category/news/", "h3.entry-title a", "[分析]"),
+        ("數位時代", "https://www.bnext.com.tw/articles", "a.item_title", "[數位]"),
+        ("WSJ Tech", "https://www.wsj.com/tech", "h3 a", "[WSJ]")
+    ]
     
-    # 建立「列表式」統計 HTML
+    today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
+    for name, url, selector, tag in special_sites:
+        web_articles, count = fetch_from_html(name, url, selector, tag)
+        if count > 0:
+            target = intl_raw if name == "WSJ Tech" else tw_raw
+            target.setdefault(today_str, []).extend(web_articles)
+            # 更新統計
+            if name == "WSJ Tech": intl_st[name] = count
+            else: tw_st[name] = count
+
+    print(">>> [2/2] 生成介面與翻譯...", flush=True)
+    now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
     all_stats = {**intl_st, **jk_st, **tw_st}
-    stats_list_items = ""
-    for k, v in sorted(all_stats.items(), key=lambda x: x[1], reverse=True):
-        scolor = "#27ae60" if v > 0 else "#e74c3c"
-        stats_list_items += f"<li><span style='color:{scolor}; font-weight:bold;'>{v}</span> - {k}</li>"
+    stats_list = "".join([f"<li><span style='color:{('#27ae60' if v>0 else '#e74c3c')}; font-weight:bold;'>{v}</span> - {k}</li>" 
+                          for k, v in sorted(all_stats.items(), key=lambda x: x[1], reverse=True)])
 
     full_html = f"""
     <html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>{SITE_TITLE}</title>
@@ -140,13 +162,9 @@ def main():
         @media (prefers-color-scheme: dark) {{ :root {{ --bg: #1a1a1a; --text: #ccc; --border: #333; --link: #8ab4f8; --stat-bg: #252525; }} }}
         body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; }}
         .header {{ padding: 12px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 1000; }}
-        
         #stats-panel {{ display: none; padding: 15px 25px; background: var(--stat-bg); border-bottom: 1px solid var(--border); font-size: 13px; }}
         .stats-columns {{ column-count: 4; column-gap: 30px; list-style: none; padding: 0; margin: 0; }}
         @media (max-width: 1000px) {{ .stats-columns {{ column-count: 2; }} }}
-        @media (max-width: 600px) {{ .stats-columns {{ column-count: 1; }} }}
-        .stats-columns li {{ padding: 3px 0; border-bottom: 1px dashed var(--border); break-inside: avoid; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }}
-
         .wrapper {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); }}
         @media (max-width: 900px) {{ .wrapper {{ grid-template-columns: 1fr; }} }}
         .river {{ background: var(--bg); padding: 15px; }}
@@ -170,7 +188,7 @@ def main():
                 <small style='margin-left:10px; font-size:10px; color:#888;'>{now_str}</small>
             </div>
         </div>
-        <div id='stats-panel'><ul class='stats-columns'>{stats_list_items}</ul></div>
+        <div id='stats-panel'><ul class='stats-columns'>{stats_list}</ul></div>
         <div class='wrapper'>
             {render_column(intl_raw, "Global Strategy", True)}
             {render_column(jk_raw, "Japan/Korea", True)}
@@ -198,7 +216,7 @@ def main():
     </body></html>
     """
     with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
-    print(">>> [成功] 戰情室已更新！")
+    print(">>> [成功] 戰情室已完整更新！")
 
 if __name__ == "__main__":
     main()
