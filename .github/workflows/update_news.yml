@@ -29,12 +29,14 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python main.py
-          touch .nojekyll # 強制在產檔目錄加入 .nojekyll
+          touch .nojekyll
+          # 檢查檔案是否存在，防止空部署
+          ls -al index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
+          publish_dir: .  # 部署當前目錄
           publish_branch: gh-pages
-          force_orphan: true
+          force_orphan: false # 改回 false，避免每次都清空分支造成 404
