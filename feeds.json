@@ -39,6 +39,7 @@
       {"url": "https://www.digitimes.com.tw/rss/news.xml", "tag": ""},
       {"url": "https://www.cio.com.tw/feed/", "tag": "[分析]"},
       {"url": "https://www.bnext.com.tw/rss", "tag": "[數位]"},
+      {"url": "https://nitter.net/bnextmedia/rss", "tag": "[數位][X]"},
       {"url": "https://nitter.net/ithome/rss", "tag": "[X]"},
       {"url": "https://nitter.net/bnext_official/rss", "tag": "[數位][X]"},
       {"url": "https://nitter.net/CIO_Taiwan/rss", "tag": "[分析][X]"}
