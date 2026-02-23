@@ -7,13 +7,15 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 版本資訊 ---
-VERSION = "1.2.1"
+VERSION = "1.2.4"
 SITE_TITLE = f"豆子版 Techmeme | v{VERSION}"
 
 TW_TZ = pytz.timezone('Asia/Taipei')
 TZ_INFOS = {"PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific"), "JST": pytz.timezone("Asia/Tokyo"), "KST": pytz.timezone("Asia/Seoul")}
 translator = Translator()
 FINAL_STATS = {}
+
+NOISE_WORDS = ["快訊", "獨家", "Breaking", "Live", "Update", "更新", "最新", "直擊", "影", "圖", "報導", "Exclusive"]
 
 def load_config():
     if os.path.exists('feeds.json'):
@@ -65,8 +67,8 @@ def badge_styler(tag_str):
 
 def fetch_data(feed_list):
     all_articles = []
-    now_utc = datetime.datetime.now(pytz.utc)
-    limit_time = now_utc - datetime.timedelta(hours=96)
+    now_tw = datetime.datetime.now(TW_TZ)
+    limit_time = now_tw - datetime.timedelta(hours=96)
     for item in feed_list:
         url, tag = item['url'], item['tag']
         try:
@@ -80,8 +82,8 @@ def fetch_data(feed_list):
                 if is_blacklisted(title): continue
                 raw_date = entry.get('published', entry.get('pubDate', entry.get('updated', None)))
                 try: p_date = date_parser.parse(raw_date, tzinfos=TZ_INFOS).astimezone(TW_TZ)
-                except: p_date = datetime.datetime.now(TW_TZ)
-                if p_date < datetime.datetime.now(TW_TZ) - datetime.timedelta(hours=96): continue
+                except: p_date = now_tw
+                if p_date < limit_time: continue
                 
                 keywords = []
                 if 'tags' in entry: keywords = [t.term for t in entry.tags if t.term]
@@ -95,14 +97,19 @@ def fetch_data(feed_list):
         except: continue
     return all_articles
 
+def get_pure_title(title):
+    temp = title
+    for noise in NOISE_WORDS:
+        temp = temp.replace(f"【{noise}】", "").replace(f"[{noise}]", "").replace(noise, "")
+    return temp.strip()
+
 def cluster_articles(articles):
-    """【v1.2.1 強化】將相似度門檻調至 0.33，並採多重比對，增加聚合感"""
     clusters = []
     for art in sorted(articles, key=lambda x: x['time'], reverse=True):
         found = False
+        pure_art_title = get_pure_title(art['raw_title'])
         for cluster in clusters:
-            # 只要跟群組內的任何一則新聞相似度 > 0.33，就加入
-            is_match = any(difflib.SequenceMatcher(None, item['raw_title'], art['raw_title']).ratio() > 0.33 for item in cluster)
+            is_match = any(difflib.SequenceMatcher(None, get_pure_title(item['raw_title']), pure_art_title).ratio() > 0.33 for item in cluster)
             if is_match:
                 cluster.append(art)
                 found = True
@@ -134,7 +141,6 @@ def render_clustered_html(clusters, need_trans=False):
         """
         if len(group) > 1:
             html += "<div class='sub-news-list'>"
-            # 過濾掉跟主標題完全一樣的連結
             seen_links = {main['link']}
             for sub in group[1:]:
                 if sub['link'] in seen_links: continue
@@ -147,12 +153,39 @@ def render_clustered_html(clusters, need_trans=False):
     return html
 
 def main():
-    print(f">>> [v{VERSION}] 精煉來源並強化聚合...")
+    now_tw_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
+    print(f">>> [v{VERSION}] 更新數位時代 X 來源並同步時區...")
+    
     intl_list = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_list = fetch_data(CONFIG['FEEDS']['JK'])
     tw_list = fetch_data(CONFIG['FEEDS']['TW'])
     
-    # 執行聚合
+    special_sites = [
+        ("CIO Taiwan", "https://www.cio.com.tw/category/it-strategy/", ["h3 a", ".entry-title a"], "[分析]", ".category-label"),
+        ("數位時代", "https://www.bnext.com.tw/articles", [".item_box", ".post_item"], "[數位]", ".item_tag")
+    ]
+    for name, url, sels, tag, tag_sel in special_sites:
+        try:
+            resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=20, verify=False)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            items = []
+            for sel in sels:
+                items = soup.select(sel)
+                if items: break
+            for item in items[:10]:
+                title_tag = item.select_one('.item_title, h3, a') if name == "數位時代" else item
+                link_tag = title_tag if title_tag and title_tag.name == 'a' else (title_tag.find('a') if title_tag else None)
+                if not link_tag: continue
+                title = link_tag.get_text().strip()
+                if is_blacklisted(title): continue
+                link = link_tag.get('href', '')
+                if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
+                tw_list.append({
+                    'raw_title': title, 'link': link, 'source': name, 
+                    'time': datetime.datetime.now(TW_TZ), 'tag_html': tag, 'item_tags': ""
+                })
+        except: pass
+
     intl_groups = cluster_articles(intl_list)
     jk_groups = cluster_articles(jk_list)
     tw_groups = cluster_articles(tw_list)
@@ -176,20 +209,24 @@ def main():
         .sub-news-list {{ margin: 8px 0 0 45px; border-left: 2px solid var(--border); padding-left: 12px; }}
         .sub-item {{ font-size: 13px; margin-bottom: 4px; color: var(--text); }}
         .sub-item a {{ text-decoration: none; color: var(--text); }}
-        .sub-item a:hover {{ text-decoration: underline; }}
         .sub-meta {{ font-size: 10px; color: var(--tag); }}
         .badge {{ display: inline-block; padding: 1px 6px; font-size: 10px; border-radius: 4px; margin-right: 6px; font-weight: 800; white-space: nowrap; height: 18px; margin-top: 2px; }}
         .badge-x {{ background: #1da1f2 !important; color: #fff !important; }}
         .badge-jp {{ background: #ff5722 !important; color: #fff !important; }}
         .badge-kr {{ background: #303f9f !important; color: #fff !important; }}
+        .badge-digital {{ background: #27ae60 !important; color: #fff !important; }}
         .star-btn {{ cursor: pointer; color: #ddd; font-size: 18px; margin-right: 10px; float: left; }}
         .star-btn.active {{ color: #f1c40f; }}
         .kw-highlight {{ color: var(--kw); font-weight: bold; background: #ff980015; }}
         .btn {{ cursor: pointer; padding: 5px 12px; border: 1px solid var(--text); font-size: 11px; border-radius: 6px; background: var(--bg); color: var(--text); font-weight: bold; }}
-        body.only-stars .story-block:not(.has-star) {{ display: none; }}
+        .update-time {{ font-size: 10px; color: var(--tag); margin-left: 10px; }}
     </style></head><body>
         <div class='header'><h1 style='margin:0; font-size:20px;'>{SITE_TITLE}</h1>
-        <div><span class='btn' onclick='toggleStats()'>📊 統計</span> <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span></div></div>
+        <div>
+            <span class='update-time'>最後更新: {now_tw_str}</span>
+            <span class='btn' onclick='toggleStats()'>📊 統計</span> 
+            <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span>
+        </div></div>
         <div id='stats-panel' style='display:none; padding:15px; background:#8882; border-bottom:1px solid var(--border);'><ul style='column-count:3; list-style:none; padding:0; margin:0; font-size:11px;'>{stats_list}</ul></div>
         <div class='wrapper'>
             <div class='river'><div class='river-title'>Global Strategy</div>{render_clustered_html(intl_groups, True)}</div>
