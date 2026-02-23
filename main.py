@@ -11,7 +11,7 @@ if sys.platform != 'win32':
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 配置 ---
-VERSION = "1.4.1"
+VERSION = "1.4.3"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -21,12 +21,13 @@ if GEMINI_KEY:
 
 TW_TZ = pytz.timezone('Asia/Taipei')
 translator = Translator()
+FINAL_STATS = {}
 
 SOURCE_CLEAN_MAP = {
     "全記事新着 - 日経クロステック": "日經 XTECH",
-    "日經 XTECH": "日經 XTECH",
+    "日経クロステック": "日經 XTECH",
     "IT - 전자신문": "韓國 ET News",
-    "韓國 ET News": "韓國 ET News",
+    "전자신문": "韓國 ET News",
     "ITmedia NEWS": "ITmedia NEWS",
     "ZDNET Japan": "ZDNET Japan",
     "CIO Taiwan": "CIO Taiwan"
@@ -127,6 +128,7 @@ def fetch_data(feed_list):
             for key, clean_val in SOURCE_CLEAN_MAP.items():
                 if key in raw_s_name: s_name = clean_val; break
             s_name = s_name[:18]
+            
             for entry in feed.entries[:25]:
                 title = clean_x_title(entry.title) if "nitter" in url else entry.title.strip()
                 if is_blacklisted(title): continue
@@ -135,6 +137,7 @@ def fetch_data(feed_list):
                 except: p_date = now_tw
                 if p_date < limit_time: continue
                 all_articles.append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date, 'tag_html': tag})
+                FINAL_STATS[s_name] = FINAL_STATS.get(s_name, 0) + 1
         except: continue
     return all_articles
 
@@ -184,7 +187,9 @@ def main():
             soup = BeautifulSoup(resp.text, 'html.parser')
             items = []
             for sel in sels:
-                items = soup.select(sel); if items: break
+                items = soup.select(sel)
+                if items:
+                    break
             for item in items[:10]:
                 title_tag = item.select_one('.item_title, h3, a') if name == "數位時代" else item
                 link_tag = title_tag if title_tag and title_tag.name == 'a' else (title_tag.find('a') if title_tag else None)
@@ -192,7 +197,10 @@ def main():
                 title = link_tag.get_text().strip()
                 if not is_blacklisted(title):
                     tw_list.append({'raw_title': title, 'link': link_tag.get('href', ''), 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag})
+                    FINAL_STATS[name] = FINAL_STATS.get(name, 0) + 1
         except: pass
+
+    stats_html = "".join([f"<li><span class='stats-label'>{k}</span><span class='stats-bar' style='width:{min(v*5, 100)}%'></span><span class='stats-val'>{v}</span></li>" for k, v in sorted(FINAL_STATS.items(), key=lambda x: x[1], reverse=True)])
 
     full_html = f"""
     <html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>{SITE_TITLE}</title>
@@ -205,27 +213,25 @@ def main():
         @media (max-width: 900px) {{ .wrapper {{ grid-template-columns: 1fr; }} }}
         .river {{ background: var(--bg); padding: 12px; }}
         .river-title {{ font-size: 16px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 12px; padding-bottom: 4px; }}
-        .story-block {{ padding: 10px 0; border-bottom: 1px solid var(--border); transition: all 0.3s; }}
+        .story-block {{ padding: 10px 0; border-bottom: 1px solid var(--border); transition: all 0.2s; }}
         .story-block.is-hidden {{ display: none; opacity: 0.3; }}
         body.show-hidden .story-block.is-hidden {{ display: block !important; }}
+        body.only-stars .story-block:not(.has-star) {{ display: none !important; }}
+        .headline-wrapper {{ display: flex; align-items: flex-start; justify-content: space-between; }}
         .main-head {{ font-size: 14.5px; font-weight: 800; text-decoration: none; color: var(--link); }}
         .meta-line {{ font-size: 10.5px; color: var(--tag); margin-top: 3px; margin-left: 28px; }}
         .sub-news-list {{ margin: 5px 0 0 32px; border-left: 1px solid var(--border); padding-left: 10px; }}
         .sub-item {{ font-size: 12px; margin-bottom: 2px; color: var(--text); opacity: 0.9; }}
-        .sub-item a {{ text-decoration: none; color: var(--text); }}
-        .badge {{ display: inline-block; padding: 1px 5px; font-size: 9px; border-radius: 3px; margin-right: 5px; font-weight: 800; white-space: nowrap; color: #fff !important; }}
-        .badge-x {{ background: #1da1f2 !important; }}
-        .badge-jp {{ background: #ff5722 !important; }}
-        .badge-kr {{ background: #303f9f !important; }}
-        .badge-digital {{ background: #27ae60 !important; }}
-        .badge-analysis {{ background: #673ab7 !important; }}
-        .badge-sec {{ background: #e91e63 !important; }}
-        .badge-ithome {{ background: #d32f2f !important; }}
+        .badge {{ display: inline-block; padding: 1px 5px; font-size: 9px; border-radius: 3px; margin-right: 5px; font-weight: 800; color: #fff !important; }}
+        .badge-x {{ background: #1da1f2 !important; }} .badge-jp {{ background: #ff5722 !important; }} .badge-kr {{ background: #303f9f !important; }} .badge-digital {{ background: #27ae60 !important; }} .badge-ithome {{ background: #d32f2f !important; }} .badge-default {{ background: #888 !important; }}
         .star-btn {{ cursor: pointer; color: #444; font-size: 16px; margin-right: 10px; }}
         .star-btn.active {{ color: #f1c40f; }}
-        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 12px; padding: 0 5px; opacity: 0.4; }}
-        .btn-hide:hover {{ opacity: 1; color: #e74c3c; }}
-        .kw-highlight {{ color: var(--kw); font-weight: bold; background: #ff980010; }}
+        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 12px; opacity: 0.4; }}
+        #stats-panel {{ display: none; padding: 15px; background: #8882; border-bottom: 1px solid var(--border); }}
+        #stats-panel ul {{ list-style: none; padding: 0; margin: 0; column-count: 3; }}
+        .stats-label {{ font-size: 10px; display: inline-block; width: 80px; overflow: hidden; white-space: nowrap; }}
+        .stats-bar {{ display: inline-block; height: 6px; background: var(--link); border-radius: 3px; margin: 0 5px; }}
+        .stats-val {{ font-size: 10px; color: var(--tag); }}
         .btn {{ cursor: pointer; padding: 4px 10px; border: 1px solid var(--border); font-size: 11px; border-radius: 4px; background: var(--bg); color: var(--text); font-weight: bold; margin-left: 5px; }}
         .btn.active {{ background: var(--text); color: var(--bg); }}
     </style></head><body>
@@ -233,16 +239,30 @@ def main():
             <h1 style='margin:0; font-size:18px;'>{SITE_TITLE}</h1>
             <div>
                 <span style='font-size:10px; color:var(--tag); margin-right:8px;'>{now_tw_str}</span>
-                <span id='toggle-hide-btn' class='btn' onclick='toggleShowHidden()'>👁️ 顯示隱藏</span>
-                <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★</span>
+                <span class='btn' onclick='toggleStats()'>📊</span>
+                <span id='toggle-hide-btn' class='btn' onclick='toggleShowHidden()'>👁️</span>
+                <span id='star-filter-btn' class='btn' onclick='toggleStarFilter()'>★</span>
             </div>
         </div>
+        <div id='stats-panel'><ul>{stats_html}</ul></div>
         <div class='wrapper'>
             <div class='river'><div class='river-title'>Global Strategy</div>{render_clustered_html(cluster_articles(intl_list), True)}</div>
             <div class='river'><div class='river-title'>Japan/Korea</div>{render_clustered_html(cluster_articles(jk_list), True)}</div>
             <div class='river'><div class='river-title'>Taiwan Tech</div>{render_clustered_html(cluster_articles(tw_list, is_tw=True), False)}</div>
         </div>
         <script>
+            function toggleStats() {{ const p = document.getElementById('stats-panel'); p.style.display = (p.style.display==='block')?'none':'block'; }}
+            function toggleStarFilter() {{ 
+                const btn = document.getElementById('star-filter-btn');
+                const active = document.body.classList.toggle('only-stars');
+                btn.classList.toggle('active', active);
+            }}
+            function toggleShowHidden() {{
+                const btn = document.getElementById('toggle-hide-btn');
+                const isShowing = document.body.classList.toggle('show-hidden');
+                btn.innerText = isShowing ? '🚫' : '👁️';
+                btn.classList.toggle('active', isShowing);
+            }}
             function toggleHide(h) {{
                 const el = document.getElementById('sb-'+h);
                 const link = el.getAttribute('data-link');
@@ -250,19 +270,11 @@ def main():
                 if(hiddens.includes(link)) {{
                     hiddens = hiddens.filter(i=>i!==link);
                     el.classList.remove('is-hidden');
-                    el.querySelector('.btn-hide').innerText = '✕';
                 }} else {{
                     hiddens.push(link);
                     el.classList.add('is-hidden');
-                    el.querySelector('.btn-hide').innerText = '↺';
                 }}
                 localStorage.setItem('tech_hiddens', JSON.stringify(hiddens));
-            }}
-            function toggleShowHidden() {{
-                const btn = document.getElementById('toggle-hide-btn');
-                const isShowing = document.body.classList.toggle('show-hidden');
-                btn.innerText = isShowing ? '🚫 遮蔽隱藏' : '👁️ 顯示隱藏';
-                btn.classList.toggle('active', isShowing);
             }}
             function toggleStar(h) {{
                 const el = document.getElementById('sb-'+h);
@@ -271,9 +283,11 @@ def main():
                 let s = JSON.parse(localStorage.getItem('tech_stars')||'[]');
                 if(s.includes(link)) {{
                     s=s.filter(i=>i!==link);
+                    el.classList.remove('has-star');
                     btn.classList.remove('active');
                 }} else {{
                     s.push(link);
+                    el.classList.add('has-star');
                     btn.classList.add('active');
                 }}
                 localStorage.setItem('tech_stars', JSON.stringify(s));
@@ -283,11 +297,11 @@ def main():
                 const h = JSON.parse(localStorage.getItem('tech_hiddens')||'[]');
                 document.querySelectorAll('.story-block').forEach(el => {{
                     const link = el.getAttribute('data-link');
-                    if(s.includes(link)) el.querySelector('.star-btn').classList.add('active');
-                    if(h.includes(link)) {{
-                        el.classList.add('is-hidden');
-                        el.querySelector('.btn-hide').innerText = '↺';
+                    if(s.includes(link)) {{
+                        el.classList.add('has-star');
+                        el.querySelector('.star-btn').classList.add('active');
                     }}
+                    if(h.includes(link)) el.classList.add('is-hidden');
                 }});
             }});
         </script></body></html>
