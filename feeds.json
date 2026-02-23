@@ -39,8 +39,8 @@
     ]
   },
   "BLACKLIST_GENERAL": ["外交", "考古", "疫苗", "關稅", "經貿", "運動", "娛樂", "影劇", "天氣", "選舉", "政治", "社會新聞", "RFK", "殺蟲劑", "建築"],
-  "BLACKLIST_TECH_RELATED": ["暗物質", "隕石", "哈伯", "黑洞", "銀河系", "天文", "量子力學", "元宇宙", "NFT", "閱讀器", "三星手機", "RAZR", "XBOX", "NASA"],
-  "WHITELIST": ["AI", "Copilot", "SaaS", "生成式AI", "雲原生", "軟體開發", "CIO", "CISO", "DEVOPS", "半導體", "TSMC", "三星", "海力士", "Nvidia", "Intel", "AMD", "資安", "雲端", "資料中心"],
+  "BLACKLIST_TECH_RELATED": ["暗物質", "隕石", "哈伯", "黑洞", "銀河系", "天文","月食","電動牙刷","面板", "量子力學", "元宇宙", "NFT", "閱讀器", "三星手機", "RAZR", "XBOX", "NASA"],
+  "WHITELIST": ["AI", "Copilot", "SaaS", "生成式AI", "雲原生", "軟體開發", "CIO", "CISO", "DEVOPS", "半導體", "TSMC","台積", "Nvidia", "Intel", "AMD", "資安", "雲端", "資料中心"],
   "TERM_MAP": {
     "コパイロット": "Copilot",
     "クラウド": "Cloud",
