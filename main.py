@@ -18,14 +18,14 @@ def load_config():
     return {"FEEDS": {"INTL": [], "JK": [], "TW": []}, "WHITELIST": [], "BLACKLIST_GENERAL": [], "BLACKLIST_TECH_RELATED": [], "TERM_MAP": {}}
 
 CONFIG = load_config()
+FINAL_STATS = {} # 用來存儲最終精準統計
 
 def translate_text(text):
     if not text: return ""
     try:
         res = translator.translate(text, dest='zh-tw').text
         term_map = CONFIG.get('TERM_MAP', {})
-        for wrong, right in term_map.items():
-            res = res.replace(wrong, right)
+        for wrong, right in term_map.items(): res = res.replace(wrong, right)
         return res
     except: return text
 
@@ -41,57 +41,37 @@ def is_blacklisted(text):
 
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.4
 
-# --- 【強攻模式】直接解析網頁 HTML ---
 def fetch_from_html(name, url, selector, tag_html):
     articles = []
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'}
     try:
-        time.sleep(random.uniform(1, 2))
         resp = requests.get(url, headers=headers, timeout=20, verify=False)
-        if resp.status_code != 200: return [], 0
-        
+        if resp.status_code != 200: return []
         soup = BeautifulSoup(resp.text, 'html.parser')
         items = soup.select(selector)
-        count = 0
         for item in items[:15]:
             title = item.get_text().strip()
             link = item.get('href', '')
             if not title or len(title) < 5 or is_blacklisted(title): continue
-            
-            # 補全相對路徑
-            if link.startswith('/'):
-                base = "/".join(url.split('/')[:3])
-                link = base + link
-            
-            articles.append({
-                'raw_title': title,
-                'link': link,
-                'source': name,
-                'time': datetime.datetime.now(TW_TZ), 
-                'tag_html': tag_html
-            })
-            count += 1
-        return articles, count
-    except:
-        return [], 0
+            if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
+            articles.append({'raw_title': title, 'link': link, 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_html})
+            FINAL_STATS[name] = FINAL_STATS.get(name, 0) + 1
+    except: pass
+    return articles
 
 def fetch_data(feed_list):
-    data_by_date, stats, seen = {}, {}, []
+    data_by_date, seen = {}, []
     now_utc = datetime.datetime.now(pytz.utc)
     limit_time = now_utc - datetime.timedelta(hours=48)
     for item in feed_list:
         url, tag = item['url'], item['tag']
-        # 跳過已知失效或需要強攻的 RSS 網址
-        if "cio.com.tw" in url or "bnext.com.tw" in url or "wsj.com" in url: continue
-        
+        if any(x in url for x in ["cio.com.tw", "bnext.com.tw", "wsj.com"]): continue
         try:
-            session = requests.Session()
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'}
-            resp = session.get(url, headers=headers, timeout=20, verify=False)
+            resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=20, verify=False)
             feed = feedparser.parse(resp.content)
             s_name = feed.feed.title if 'title' in feed.feed else url.split('/')[2]
             s_name = s_name.split('|')[0].split('-')[0].strip()[:18]
-            stats[s_name] = 0
+            FINAL_STATS[s_name] = 0
             for entry in feed.entries[:20]:
                 title = entry.title.strip()
                 if is_blacklisted(title) or any(is_similar(title, s) for s in seen): continue
@@ -99,61 +79,42 @@ def fetch_data(feed_list):
                 try: p_date = date_parser.parse(raw_date, tzinfos=TZ_INFOS).astimezone(pytz.utc)
                 except: p_date = now_utc
                 if p_date < limit_time: continue
-                p_date_tw = p_date.astimezone(TW_TZ)
-                date_str = p_date_tw.strftime('%Y-%m-%d')
-                data_by_date.setdefault(date_str, []).append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date_tw, 'tag_html': tag})
-                seen.append(title); stats[s_name] += 1
+                date_str = p_date.astimezone(TW_TZ).strftime('%Y-%m-%d')
+                data_by_date.setdefault(date_str, []).append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date.astimezone(TW_TZ), 'tag_html': tag})
+                seen.append(title); FINAL_STATS[s_name] += 1
         except: continue
-    return data_by_date, stats, seen
+    return data_by_date
 
 def render_column(data, title, need_trans=False):
     html = f"<div class='river'><div class='river-title'>{title}</div>"
-    sorted_dates = sorted(data.keys(), reverse=True)
-    if not sorted_dates: html += "<div style='color:#888; padding:20px;'>今日暫無更新</div>"
-    for d_str in sorted_dates:
+    for d_str in sorted(data.keys(), reverse=True):
         html += f"<div class='date-header'>{d_str}</div>"
         for art in data[d_str]:
-            display_title = translate_text(art['raw_title']) if need_trans else art['raw_title']
-            display_title = highlight_keywords(display_title)
+            display_title = highlight_keywords(translate_text(art['raw_title']) if need_trans else art['raw_title'])
             link_hash = str(abs(hash(art['link'])))[:10]
-            html += f"""
-            <div class='story-block' id='sb-{link_hash}' data-link='{art['link']}'>
-                <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("{link_hash}")'>★</span>
-                    <a class='headline' href='{art['link']}' target='_blank'>{art['tag_html']} {display_title}</a>
-                </div>
-                <div class='meta'>{art['source']} | {art['time'].strftime('%H:%M')}</div>
-            </div>"""
+            html += f"<div class='story-block' id='sb-{link_hash}' data-link='{art['link']}'><div class='headline-wrapper'><span class='star-btn' onclick='toggleStar(\"{link_hash}\")'>★</span><a class='headline' href='{art['link']}' target='_blank'>{art['tag_html']} {display_title}</a></div><div class='meta'>{art['source']} | {art['time'].strftime('%H:%M')}</div></div>"
     return html + "</div>"
 
 def main():
-    print(">>> [1/2] 啟動 RSS + HTML 強攻模式...", flush=True)
-    intl_raw, intl_st, _ = fetch_data(CONFIG['FEEDS']['INTL'])
-    jk_raw, jk_st, _ = fetch_data(CONFIG['FEEDS']['JK'])
-    tw_raw, tw_st, _ = fetch_data(CONFIG['FEEDS']['TW'])
+    print(">>> [1/2] 抓取資料中...")
+    intl_raw = fetch_data(CONFIG['FEEDS']['INTL'])
+    jk_raw = fetch_data(CONFIG['FEEDS']['JK'])
+    tw_raw = fetch_data(CONFIG['FEEDS']['TW'])
 
-    # --- HTML 強攻名單 ---
     special_sites = [
         ("CIO Taiwan", "https://www.cio.com.tw/category/news/", "h3.entry-title a", "[分析]"),
         ("數位時代", "https://www.bnext.com.tw/articles", "a.item_title", "[數位]"),
         ("WSJ Tech", "https://www.wsj.com/tech", "h3 a", "[WSJ]")
     ]
-    
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
-    for name, url, selector, tag in special_sites:
-        web_articles, count = fetch_from_html(name, url, selector, tag)
-        if count > 0:
-            target = intl_raw if name == "WSJ Tech" else tw_raw
-            target.setdefault(today_str, []).extend(web_articles)
-            # 更新統計
-            if name == "WSJ Tech": intl_st[name] = count
-            else: tw_st[name] = count
+    for name, url, sel, tag in special_sites:
+        arts = fetch_from_html(name, url, sel, tag)
+        target = intl_raw if name == "WSJ Tech" else tw_raw
+        target.setdefault(today_str, []).extend(arts)
 
-    print(">>> [2/2] 生成介面與翻譯...", flush=True)
+    print(">>> [2/2] 產出網頁...")
     now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
-    all_stats = {**intl_st, **jk_st, **tw_st}
-    stats_list = "".join([f"<li><span style='color:{('#27ae60' if v>0 else '#e74c3c')}; font-weight:bold;'>{v}</span> - {k}</li>" 
-                          for k, v in sorted(all_stats.items(), key=lambda x: x[1], reverse=True)])
+    stats_list = "".join([f"<li><span style='color:{('#27ae60' if v>0 else '#e74c3c')}; font-weight:bold;'>{v}</span> - {k}</li>" for k, v in sorted(FINAL_STATS.items(), key=lambda x: x[1], reverse=True)])
 
     full_html = f"""
     <html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>{SITE_TITLE}</title>
@@ -182,24 +143,14 @@ def main():
     </style></head><body>
         <div class='header'>
             <h1 style='margin:0; font-size:20px;'>{SITE_TITLE}</h1>
-            <div>
-                <span class='btn' onclick='toggleStats()'>📊 來源統計</span>
-                <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span>
-                <small style='margin-left:10px; font-size:10px; color:#888;'>{now_str}</small>
-            </div>
+            <div><span class='btn' onclick='toggleStats()'>📊 來源統計</span> <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span> <small style='margin-left:10px; font-size:10px; color:#888;'>{now_str}</small></div>
         </div>
         <div id='stats-panel'><ul class='stats-columns'>{stats_list}</ul></div>
-        <div class='wrapper'>
-            {render_column(intl_raw, "Global Strategy", True)}
-            {render_column(jk_raw, "Japan/Korea", True)}
-            {render_column(tw_raw, "Taiwan Tech", False)}
-        </div>
+        <div class='wrapper'>{render_column(intl_raw, "Global Strategy", True)}{render_column(jk_raw, "Japan/Korea", True)}{render_column(tw_raw, "Taiwan Tech", False)}</div>
         <script>
             function toggleStats() {{ const p = document.getElementById('stats-panel'); p.style.display = (p.style.display==='block')?'none':'block'; }}
             function toggleStar(h) {{
-                const el = document.getElementById('sb-'+h);
-                const btn = el.querySelector('.star-btn');
-                const link = el.getAttribute('data-link');
+                const el = document.getElementById('sb-'+h); const btn = el.querySelector('.star-btn'); const link = el.getAttribute('data-link');
                 let s = JSON.parse(localStorage.getItem('tech_stars')||'[]');
                 if(s.includes(link)) {{ s=s.filter(i=>i!==link); el.classList.remove('has-star'); btn.classList.remove('active'); }}
                 else {{ s.push(link); el.classList.add('has-star'); btn.classList.add('active'); }}
@@ -212,11 +163,10 @@ def main():
                 }});
             }}
             document.addEventListener('DOMContentLoaded', init);
-        </script>
-    </body></html>
+        </script></body></html>
     """
     with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
-    print(">>> [成功] 戰情室已完整更新！")
+    print(">>> [成功] 戰情室已更新，統計數字精確化！")
 
 if __name__ == "__main__":
     main()
