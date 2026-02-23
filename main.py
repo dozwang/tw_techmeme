@@ -12,7 +12,7 @@ if sys.platform != 'win32':
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 配置 ---
-VERSION = "1.4.3"
+VERSION = "1.4.4"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -91,7 +91,7 @@ def badge_styler(tag_str):
 
 def ask_gemini_if_same_event(title1, title2):
     if not GEMINI_KEY: return False
-    prompt = f"作為專業編輯，判斷兩標題是否描述『同一個技術新聞事件』。相同回傳 YES，不同回傳 NO。只需回答 YES 或 NO。\n1: {title1}\n2: {title2}"
+    prompt = f"判斷兩標題是否描述『同一個技術新聞事件』。相同回傳 YES，不同回傳 NO。\n1: {title1}\n2: {title2}"
     try:
         response = gemini_model.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=0))
         return "YES" in response.text.upper()
@@ -129,7 +129,6 @@ def fetch_data(feed_list):
             for key, clean_val in SOURCE_CLEAN_MAP.items():
                 if key in raw_s_name: s_name = clean_val; break
             s_name = s_name[:18]
-            
             for entry in feed.entries[:25]:
                 title = clean_x_title(entry.title) if "nitter" in url else entry.title.strip()
                 if is_blacklisted(title): continue
@@ -181,7 +180,6 @@ def main():
     jk_list = fetch_data(CONFIG['FEEDS']['JK'])
     tw_list = fetch_data(CONFIG['FEEDS']['TW'])
     
-    # 強攻站點
     special_sites = [("CIO Taiwan", "https://www.cio.com.tw/category/it-strategy/", ["h3 a"], "[分析]"), ("數位時代", "https://www.bnext.com.tw/articles", [".item_box", ".post_item"], "[數位]")]
     for name, url, sels, tag in special_sites:
         try:
@@ -190,8 +188,7 @@ def main():
             items = []
             for sel in sels:
                 items = soup.select(sel)
-                if items:
-                    break
+                if items: break
             for item in items[:10]:
                 title_tag = item.select_one('.item_title, h3, a') if name == "數位時代" else item
                 link_tag = title_tag if title_tag and title_tag.name == 'a' else (title_tag.find('a') if title_tag else None)
@@ -207,4 +204,107 @@ def main():
     full_html = f"""
     <html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>{SITE_TITLE}</title>
     <style>
-        :root {{ --bg: #fff; --text: #3
+        :root {{ --bg: #fff; --text: #333; --border: #eee; --link: #1a0dab; --hi: #ff98001a; --kw: #e67e22; --tag: #888; }}
+        @media (prefers-color-scheme: dark) {{ :root {{ --bg: #121212; --text: #e0e0e0; --border: #2c2c2c; --link: #8ab4f8; --tag: #9aa0a6; }} }}
+        body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.35; padding-bottom: 50px; }}
+        .header {{ padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 1000; }}
+        .wrapper {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); }}
+        @media (max-width: 900px) {{ .wrapper {{ grid-template-columns: 1fr; }} }}
+        .river {{ background: var(--bg); padding: 12px; }}
+        .river-title {{ font-size: 16px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 12px; padding-bottom: 4px; }}
+        .story-block {{ padding: 10px 0; border-bottom: 1px solid var(--border); transition: all 0.2s; }}
+        .story-block.is-hidden {{ display: none; opacity: 0.3; }}
+        body.show-hidden .story-block.is-hidden {{ display: block !important; }}
+        body.only-stars .story-block:not(.has-star) {{ display: none !important; }}
+        .headline-wrapper {{ display: flex; align-items: flex-start; justify-content: space-between; }}
+        .main-head {{ font-size: 14.5px; font-weight: 800; text-decoration: none; color: var(--link); }}
+        .meta-line {{ font-size: 10.5px; color: var(--tag); margin-top: 3px; margin-left: 28px; }}
+        .sub-news-list {{ margin: 5px 0 0 32px; border-left: 1px solid var(--border); padding-left: 10px; }}
+        .sub-item {{ font-size: 12px; margin-bottom: 2px; color: var(--text); opacity: 0.9; }}
+        .badge {{ display: inline-block; padding: 1px 5px; font-size: 9px; border-radius: 3px; margin-right: 5px; font-weight: 800; color: #fff !important; }}
+        .badge-x {{ background: #1da1f2 !important; }} .badge-jp {{ background: #ff5722 !important; }} .badge-kr {{ background: #303f9f !important; }} .badge-digital {{ background: #27ae60 !important; }} .badge-ithome {{ background: #d32f2f !important; }} .badge-default {{ background: #888 !important; }}
+        .star-btn {{ cursor: pointer; color: #444; font-size: 16px; margin-right: 10px; }}
+        .star-btn.active {{ color: #f1c40f; }}
+        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 12px; opacity: 0.4; }}
+        #stats-panel {{ display: none; padding: 15px; background: #8882; border-bottom: 1px solid var(--border); }}
+        #stats-panel ul {{ list-style: none; padding: 0; margin: 0; column-count: 3; }}
+        .stats-label {{ font-size: 10px; display: inline-block; width: 80px; overflow: hidden; white-space: nowrap; }}
+        .stats-bar {{ display: inline-block; height: 6px; background: var(--link); border-radius: 3px; margin: 0 5px; }}
+        .stats-val {{ font-size: 10px; color: var(--tag); }}
+        .btn {{ cursor: pointer; padding: 4px 10px; border: 1px solid var(--border); font-size: 11px; border-radius: 4px; background: var(--bg); color: var(--text); font-weight: bold; margin-left: 5px; }}
+        .btn.active {{ background: var(--text); color: var(--bg); }}
+    </style></head><body>
+        <div class='header'>
+            <h1 style='margin:0; font-size:18px;'>{SITE_TITLE} v{VERSION}</h1>
+            <div>
+                <span style='font-size:10px; color:var(--tag); margin-right:8px;'>{now_tw_str}</span>
+                <span class='btn' onclick='toggleStats()'>📊</span>
+                <span id='toggle-hide-btn' class='btn' onclick='toggleShowHidden()'>👁️</span>
+                <span id='star-filter-btn' class='btn' onclick='toggleStarFilter()'>★</span>
+            </div>
+        </div>
+        <div id='stats-panel'><ul>{stats_html}</ul></div>
+        <div class='wrapper'>
+            <div class='river'><div class='river-title'>Global Strategy</div>{render_clustered_html(cluster_articles(intl_list), True)}</div>
+            <div class='river'><div class='river-title'>Japan/Korea</div>{render_clustered_html(cluster_articles(jk_list), True)}</div>
+            <div class='river'><div class='river-title'>Taiwan Tech</div>{render_clustered_html(cluster_articles(tw_list, is_tw=True), False)}</div>
+        </div>
+        <script>
+            function toggleStats() {{ const p = document.getElementById('stats-panel'); p.style.display = (p.style.display==='block')?'none':'block'; }}
+            function toggleStarFilter() {{ 
+                const btn = document.getElementById('star-filter-btn');
+                const active = document.body.classList.toggle('only-stars');
+                btn.classList.toggle('active', active);
+            }}
+            function toggleShowHidden() {{
+                const btn = document.getElementById('toggle-hide-btn');
+                const isShowing = document.body.classList.toggle('show-hidden');
+                btn.classList.toggle('active', isShowing);
+            }}
+            function toggleHide(h) {{
+                const el = document.getElementById('sb-'+h);
+                const link = el.getAttribute('data-link');
+                let hiddens = JSON.parse(localStorage.getItem('tech_hiddens')||'[]');
+                if(hiddens.includes(link)) {{
+                    hiddens = hiddens.filter(i=>i!==link);
+                    el.classList.remove('is-hidden');
+                }} else {{
+                    hiddens.push(link);
+                    el.classList.add('is-hidden');
+                }}
+                localStorage.setItem('tech_hiddens', JSON.stringify(hiddens));
+            }}
+            function toggleStar(h) {{
+                const el = document.getElementById('sb-'+h);
+                const btn = el.querySelector('.star-btn');
+                const link = el.getAttribute('data-link');
+                let s = JSON.parse(localStorage.getItem('tech_stars')||'[]');
+                if(s.includes(link)) {{
+                    s=s.filter(i=>i!==link);
+                    el.classList.remove('has-star');
+                    btn.classList.remove('active');
+                }} else {{
+                    s.push(link);
+                    el.classList.add('has-star');
+                    btn.classList.add('active');
+                }}
+                localStorage.setItem('tech_stars', JSON.stringify(s));
+            }}
+            document.addEventListener('DOMContentLoaded', () => {{
+                const s = JSON.parse(localStorage.getItem('tech_stars')||'[]');
+                const h = JSON.parse(localStorage.getItem('tech_hiddens')||'[]');
+                document.querySelectorAll('.story-block').forEach(el => {{
+                    const link = el.getAttribute('data-link');
+                    if(s.includes(link)) {{
+                        el.classList.add('has-star');
+                        el.querySelector('.star-btn').classList.add('active');
+                    }}
+                    if(h.includes(link)) el.classList.add('is-hidden');
+                }});
+            }});
+        </script></body></html>
+    """
+    with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
+
+if __name__ == "__main__":
+    main()
