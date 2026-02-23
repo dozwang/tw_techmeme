@@ -42,47 +42,54 @@ def is_blacklisted(text):
 
 def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.4
 
-def fetch_from_html(name, url, selectors, tag_html):
+def fetch_from_html(name, url, selectors, tag_html, item_tags_selector=None):
     articles = []
     FINAL_STATS[name] = 0
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'}
     try:
         resp = requests.get(url, headers=headers, timeout=20, verify=False)
         if resp.status_code != 200:
-            msg = f"❌ {name}: HTTP {resp.status_code}"
-            DIAGNOSTIC_LOGS.append(msg); print(f"  [DIAGNOSTIC] {msg}")
+            DIAGNOSTIC_LOGS.append(f"❌ {name}: HTTP {resp.status_code}")
             return []
         
         soup = BeautifulSoup(resp.text, 'html.parser')
+        container = soup.select_one('body') # 預設搜尋範圍
+        
+        # 尋找文章列表
         items = []
         for sel in selectors:
             items = soup.select(sel)
             if items: break
             
-        if not items:
-            msg = f"⚠️ {name}: 選擇器失效"
-            DIAGNOSTIC_LOGS.append(msg); print(f"  [DIAGNOSTIC] {msg}")
-            return []
-
         for item in items[:15]:
             title = item.get_text().strip()
             link = item.get('href', '')
             if not title or len(title) < 5 or is_blacklisted(title): continue
             if link.startswith('/'): link = "/".join(url.split('/')[:3]) + link
-            articles.append({'raw_title': title, 'link': link, 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_html})
+            
+            # 嘗試抓取標籤（副標）
+            item_tags = ""
+            if item_tags_selector:
+                # 在文章標題附近的元素尋找分類標籤
+                parent = item.find_parent()
+                tag_el = parent.select_one(item_tags_selector) if parent else None
+                if tag_el: item_tags = tag_el.get_text().strip()
+
+            articles.append({
+                'raw_title': title, 'link': link, 'source': name, 
+                'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_html,
+                'item_tags': item_tags
+            })
             FINAL_STATS[name] += 1
-        
-        msg = f"✅ {name}: 抓取成功 ({FINAL_STATS[name]} 則)"
-        DIAGNOSTIC_LOGS.append(msg); print(f"  [DIAGNOSTIC] {msg}")
+        DIAGNOSTIC_LOGS.append(f"✅ {name}: 抓取成功 ({FINAL_STATS[name]} 則)")
     except Exception as e:
-        msg = f"❌ {name}: 異常 ({str(e)[:50]})"
-        DIAGNOSTIC_LOGS.append(msg); print(f"  [DIAGNOSTIC] {msg}")
+        DIAGNOSTIC_LOGS.append(f"❌ {name}: 異常 ({str(e)[:50]})")
     return articles
 
 def fetch_data(feed_list):
     data_by_date, seen = {}, []
     now_utc = datetime.datetime.now(pytz.utc)
-    limit_time = now_utc - datetime.timedelta(hours=96) # 4 天
+    limit_time = now_utc - datetime.timedelta(hours=96)
     for item in feed_list:
         url, tag = item['url'], item['tag']
         if any(x in url for x in ["cio.com.tw", "bnext.com.tw", "wsj.com"]): continue
@@ -95,12 +102,25 @@ def fetch_data(feed_list):
             for entry in feed.entries[:25]:
                 title = entry.title.strip()
                 if is_blacklisted(title) or any(is_similar(title, s) for s in seen): continue
+                
+                # 提取 RSS 標籤
+                keywords = []
+                if 'tags' in entry:
+                    keywords = [t.term for t in entry.tags if t.term]
+                elif 'category' in entry:
+                    keywords = [entry.category]
+                
                 raw_date = entry.get('published', entry.get('pubDate', entry.get('updated', None)))
                 try: p_date = date_parser.parse(raw_date, tzinfos=TZ_INFOS).astimezone(pytz.utc)
                 except: p_date = now_utc
                 if p_date < limit_time: continue
                 date_str = p_date.astimezone(TW_TZ).strftime('%Y-%m-%d')
-                data_by_date.setdefault(date_str, []).append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date.astimezone(TW_TZ), 'tag_html': tag})
+                
+                data_by_date.setdefault(date_str, []).append({
+                    'raw_title': title, 'link': entry.link, 'source': s_name, 
+                    'time': p_date.astimezone(TW_TZ), 'tag_html': tag,
+                    'item_tags': " / ".join(keywords[:3]) # 只取前三個關鍵字
+                })
                 seen.append(title); FINAL_STATS[s_name] += 1
         except: continue
     return data_by_date
@@ -113,26 +133,38 @@ def render_column(data, title, need_trans=False):
         html += f"<div class='date-header'>{d_str}</div>"
         for art in data[d_str]:
             display_title = highlight_keywords(translate_text(art['raw_title']) if need_trans else art['raw_title'])
+            display_tags = translate_text(art['item_tags']) if (need_trans and art['item_tags']) else art['item_tags']
             link_hash = str(abs(hash(art['link'])))[:10]
-            html += f"<div class='story-block' id='sb-{link_hash}' data-link='{art['link']}'><div class='headline-wrapper'><span class='star-btn' onclick='toggleStar(\"{link_hash}\")'>★</span><a class='headline' href='{art['link']}' target='_blank'>{art['tag_html']} {display_title}</a></div><div class='meta'>{art['source']} | {art['time'].strftime('%H:%M')}</div></div>"
+            
+            tag_html_block = f"<div class='story-tags'>{display_tags}</div>" if display_tags else ""
+            
+            html += f"""
+            <div class='story-block' id='sb-{link_hash}' data-link='{art['link']}'>
+                <div class='headline-wrapper'>
+                    <span class='star-btn' onclick='toggleStar("{link_hash}")'>★</span>
+                    <a class='headline' href='{art['link']}' target='_blank'>{art['tag_html']} {display_title}</a>
+                </div>
+                {tag_html_block}
+                <div class='meta'>{art['source']} | {art['time'].strftime('%H:%M')}</div>
+            </div>"""
     return html + "</div>"
 
 def main():
-    print("--- [1/2] 啟動多站點抓取流程 (時限: 96hr) ---")
+    print("--- [1/2] 抓取資料並提取關鍵字 ---")
     intl_raw = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_raw = fetch_data(CONFIG['FEEDS']['JK'])
     tw_raw = fetch_data(CONFIG['FEEDS']['TW'])
 
-    # 強攻站點定義
+    # 強攻站點定義（新增標籤選取器）
     special_sites = [
-        ("CIO Taiwan", "https://www.cio.com.tw/category/news/", ["h3.entry-title a", "h2.entry-title a"], "[分析]"),
-        ("數位時代", "https://www.bnext.com.tw/articles", ["a.item_title", ".item_name a"], "[數位]"),
-        ("WSJ Tech", "https://www.wsj.com/tech", ["h3 a", "h2 a"], "[WSJ]")
+        ("CIO Taiwan", "https://www.cio.com.tw/category/news/", ["h3.entry-title a"], "[分析]", ".category-label"),
+        ("數位時代", "https://www.bnext.com.tw/articles", ["a.item_title"], "[數位]", ".item_tag"),
+        ("WSJ Tech", "https://www.wsj.com/tech", ["h3 a"], "[WSJ]", ".wsj-card-body__eyebrow")
     ]
     
     today_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d')
-    for name, url, sels, tag in special_sites:
-        arts = fetch_from_html(name, url, sels, tag)
+    for name, url, sels, tag, tag_sel in special_sites:
+        arts = fetch_from_html(name, url, sels, tag, tag_sel)
         target = intl_raw if name == "WSJ Tech" else tw_raw
         target.setdefault(today_str, []).extend(arts)
 
@@ -144,23 +176,23 @@ def main():
     full_html = f"""
     <html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>{SITE_TITLE}</title>
     <style>
-        :root {{ --bg: #fff; --text: #333; --border: #eee; --link: #1a0dab; --hi: #ff98001a; --kw: #e67e22; --stat-bg: #f9f9f9; }}
-        @media (prefers-color-scheme: dark) {{ :root {{ --bg: #1a1a1a; --text: #ccc; --border: #333; --link: #8ab4f8; --stat-bg: #252525; }} }}
+        :root {{ --bg: #fff; --text: #333; --border: #eee; --link: #1a0dab; --hi: #ff98001a; --kw: #e67e22; --stat-bg: #f9f9f9; --tag-text: #888; }}
+        @media (prefers-color-scheme: dark) {{ :root {{ --bg: #1a1a1a; --text: #ccc; --border: #333; --link: #8ab4f8; --stat-bg: #252525; --tag-text: #777; }} }}
         body {{ font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; }}
         .header {{ padding: 12px 20px; border-bottom: 2px solid var(--text); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 1000; }}
         #stats-panel {{ display: none; padding: 15px 25px; background: var(--stat-bg); border-bottom: 1px solid var(--border); font-size: 13px; }}
         .stats-columns {{ column-count: 4; column-gap: 30px; list-style: none; padding: 0; margin: 0; }}
-        @media (max-width: 1000px) {{ .stats-columns {{ column-count: 2; }} }}
         .wrapper {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); }}
         @media (max-width: 900px) {{ .wrapper {{ grid-template-columns: 1fr; }} }}
         .river {{ background: var(--bg); padding: 15px; }}
         .river-title {{ font-size: 18px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 15px; padding-bottom: 5px; }}
         .date-header {{ background: #555; color: #fff; padding: 2px 10px; font-size: 11px; margin: 15px 0 8px; border-radius: 3px; display: inline-block; }}
-        .story-block {{ padding: 10px 0; border-bottom: 1px solid var(--border); }}
+        .story-block {{ padding: 12px 0; border-bottom: 1px solid var(--border); }}
         .story-block.has-star {{ background: var(--hi); border-left: 4px solid #f1c40f; padding-left: 8px; }}
         .headline {{ color: var(--link); text-decoration: none; font-size: 15px; font-weight: bold; line-height: 1.4; }}
-        .meta {{ font-size: 11px; color: #888; margin-top: 5px; }}
-        .star-btn {{ cursor: pointer; color: #ddd; font-size: 18px; margin-right: 8px; }}
+        .story-tags {{ font-size: 12px; color: var(--tag-text); margin: 4px 0 4px 26px; font-style: italic; }}
+        .meta {{ font-size: 11px; color: #888; margin-top: 2px; margin-left: 26px; }}
+        .star-btn {{ cursor: pointer; color: #ddd; font-size: 18px; margin-right: 8px; vertical-align: middle; }}
         .star-btn.active {{ color: #f1c40f; }}
         .kw-highlight {{ color: var(--kw); font-weight: bold; }}
         .btn {{ cursor: pointer; padding: 5px 12px; border: 1px solid var(--text); font-size: 12px; border-radius: 4px; font-weight: bold; background: var(--bg); color: var(--text); }}
@@ -170,11 +202,11 @@ def main():
     </style></head><body>
         <div class='header'>
             <h1 style='margin:0; font-size:20px;'>{SITE_TITLE}</h1>
-            <div><span class='btn' onclick='toggleStats()'>📊 來源統計</span> <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span> <small style='margin-left:10px; font-size:10px; color:#888;'>{now_str}</small></div>
+            <div><span class='btn' onclick='toggleStats()'>📊 統計</span> <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span> <small style='margin-left:10px; font-size:10px; color:#888;'>{now_str}</small></div>
         </div>
         <div id='stats-panel'><ul class='stats-columns'>{stats_list}</ul></div>
         <div class='wrapper'>{render_column(intl_raw, "Global Strategy", True)}{render_column(jk_raw, "Japan/Korea", True)}{render_column(tw_raw, "Taiwan Tech", False)}</div>
-        <div class='debug-footer'><h3>🛠️ 系統診斷報告</h3>{diag_html}</div>
+        <div class='debug-footer'><h3>🛠️ 診斷報告</h3>{diag_html}</div>
         <script>
             function toggleStats() {{ const p = document.getElementById('stats-panel'); p.style.display = (p.style.display==='block')?'none':'block'; }}
             function toggleStar(h) {{
@@ -194,7 +226,7 @@ def main():
         </script></body></html>
     """
     with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
-    print(">>> [完成] 網頁與日誌診斷已發布。")
+    print(">>> [完成] 關鍵字副標功能已上線。")
 
 if __name__ == "__main__":
     main()
