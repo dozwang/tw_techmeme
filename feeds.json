@@ -9,18 +9,11 @@
       {"url": "https://feeds.arstechnica.com/arstechnica/index/", "tag": ""},
       {"url": "https://9to5google.com/feed/", "tag": ""},
       {"url": "https://feeds.macrumors.com/MacRumors-All", "tag": ""},
-      {"url": "https://www.datacenterknowledge.com/rss.xml", "tag": ""},
-      {"url": "https://www.informationweek.com/rss.xml", "tag": ""},
-      {"url": "https://www.techtarget.com/rss/news.xml", "tag": ""},
       {"url": "https://www.bleepingcomputer.com/feed/", "tag": "[資安]"},
       {"url": "https://thenewstack.io/blog/feed/", "tag": ""},
-      {"url": "https://thenextweb.com/feed", "tag": ""},
       {"url": "https://www.wsj.com/xml/rss/3_7455.xml", "tag": "[WSJ]"},
-      {"url": "https://www.healthcareitnews.com/rss", "tag": "[醫療]"},
-      {"url": "https://thefinanser.com/feed", "tag": "[分析]"},
       {"url": "https://nitter.net/TechTarget/rss", "tag": "[X]"},
       {"url": "https://nitter.net/BleepinComputer/rss", "tag": "[資安][X]"},
-      {"url": "https://nitter.net/HealthITNews/rss", "tag": "[醫療][X]"},
       {"url": "https://nitter.net/WSJTech/rss", "tag": "[WSJ][X]"},
       {"url": "https://nitter.net/Techmeme/rss", "tag": "[X]"}
     ],
@@ -28,9 +21,7 @@
       {"url": "http://rss.etnews.com/03.xml", "tag": "[韓]"},
       {"url": "https://xtech.nikkei.com/rss/index.rdf", "tag": "[日]"},
       {"url": "https://www.sbbit.jp/rss/Special.rss", "tag": "[日]"},
-      {"url": "https://www.sbbit.jp/rss/HotTopics.rss", "tag": "[日]"},
       {"url": "https://nitter.net/zdnetjapan/rss", "tag": "[日][X]"},
-      {"url": "https://nitter.net/impress_watch/rss", "tag": "[日][X]"},
       {"url": "https://nitter.net/itmedia_news/rss", "tag": "[日][X]"}
     ],
     "TW": [
@@ -40,29 +31,20 @@
       {"url": "https://www.cio.com.tw/feed/", "tag": "[分析]"},
       {"url": "https://www.bnext.com.tw/rss", "tag": "[數位]"},
       {"url": "https://nitter.net/bnextmedia/rss", "tag": "[數位][X]"},
-      {"url": "https://nitter.net/ithome/rss", "tag": "[X]"},
-      {"url": "https://nitter.net/bnext_official/rss", "tag": "[數位][X]"},
-      {"url": "https://nitter.net/CIO_Taiwan/rss", "tag": "[分析][X]"}
+      {"url": "https://nitter.net/ithome/rss", "tag": "[X]"}
     ]
   },
-  "BLACKLIST_GENERAL": [
-    "外交", "考古", "疫苗", "關稅", "經貿", "運動", "娛樂", "影劇", "天氣", 
-    "選舉", "政治", "社會新聞", "RFK", "殺蟲劑", "建築", "生技", "基因", "恐龍", "登月", "火星", "稀土", "國稅"
-  ],
-  "BLACKLIST_TECH_RELATED": [
-    "暗物質", "哈伯望遠鏡", "韋伯望遠鏡", "黑洞", "銀河系", "天文", "量子力學", 
-    "元宇宙", "NFT", "閱讀器", "三星手機", "RAZR", "XBOX", "NASA", "Pixel", "Galaxy"
-  ],
+  "BLACKLIST_GENERAL": ["外交", "關稅", "運動", "娛樂", "影劇", "天氣", "選舉", "政治", "社會新聞"],
+  "BLACKLIST_TECH_RELATED": ["暗物質", "黑洞", "天文", "元宇宙", "NFT", "三星手機", "XBOX", "NASA"],
   "WHITELIST": [
-    "AI", "Copilot", "SaaS", "生成式AI", "雲原生", "軟體開發", "CIO", "CISO", 
-    "DEVOPS", "半導體", "TSMC", "三星", "海力士", "Nvidia", "Intel", "AMD", 
-    "資安", "雲端", "資料中心"
+    "AI", "Copilot", "SaaS", "生成式AI", "雲原生", "資安", "雲端", "資料中心",
+    "軟體", "開發", "程式", "架構", "GitHub", "DevOps", "CI/CD", "自動化", 
+    "API", "容器", "K8s", "微服務", "工程師", "Agent"
   ],
   "TERM_MAP": {
     "コパイロット": "Copilot",
     "クラウド": "Cloud",
     "生成 AI": "生成式 AI",
-    "三星電子": "Samsung",
     "데이터": "資料",
     "소프트웨어": "軟體",
     "副駕駛": "Copilot",
@@ -72,6 +54,7 @@
     "軟件": "軟體",
     "網絡": "網路",
     "信息": "資訊",
-    "硬件": "硬體"
+    "硬件": "硬體",
+    "芯片": "晶片"
   }
 }
