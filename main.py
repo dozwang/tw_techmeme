@@ -7,7 +7,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 版本資訊 ---
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 SITE_TITLE = f"豆子版 Techmeme | v{VERSION}"
 
 TW_TZ = pytz.timezone('Asia/Taipei')
@@ -44,14 +44,16 @@ def is_blacklisted(text):
     all_black = CONFIG.get('BLACKLIST_GENERAL', []) + CONFIG.get('BLACKLIST_TECH_RELATED', [])
     return any(word.lower() in text.lower() for word in all_black)
 
+def is_similar(a, b): return difflib.SequenceMatcher(None, a, b).ratio() > 0.4
+
 def clean_x_title(text):
-    """移除連結並切除推文末尾網域"""
+    """徹底移除連結與網域後綴"""
     text = re.sub(r'https?://\S+', '', text)
     text = re.sub(r'\s\S+\.(com|org|net|me|gov|io|edu|tv)(\/\S*)?\s?$', '', text)
     return text.strip().rstrip(' ;:,.')
 
 def badge_styler(tag_str):
-    """【關鍵修正】確保每個標籤都能正確獲得專屬顏色類別"""
+    """為來源標籤生成有質感的膠囊樣式"""
     if not tag_str: return ""
     clean_tags = re.findall(r'\[(.*?)\]', tag_str)
     badges = ""
@@ -73,6 +75,8 @@ def fetch_from_html(name, url, selectors, tag_html, item_tags_selector=None):
     headers = {'User-Agent': 'Mozilla/5.0'}
     try:
         resp = requests.get(url, headers=headers, timeout=25, verify=False)
+        if resp.status_code != 200:
+            DIAGNOSTIC_LOGS.append(f"❌ {name}: HTTP {resp.status_code}"); return []
         soup = BeautifulSoup(resp.text, 'html.parser')
         items = []
         for sel in selectors:
@@ -90,7 +94,9 @@ def fetch_from_html(name, url, selectors, tag_html, item_tags_selector=None):
                 if tag_el: item_tags = tag_el.get_text().strip()
             articles.append({'raw_title': title, 'link': link, 'source': name, 'time': datetime.datetime.now(TW_TZ), 'tag_html': tag_html, 'item_tags': item_tags})
             FINAL_STATS[name] += 1
-    except: pass
+        DIAGNOSTIC_LOGS.append(f"✅ {name}: 抓取成功 ({FINAL_STATS[name]} 則)")
+    except Exception as e:
+        DIAGNOSTIC_LOGS.append(f"❌ {name}: 異常 ({str(e)[:30]})")
     return articles
 
 def fetch_data(feed_list):
@@ -132,11 +138,7 @@ def render_column(data, title, need_trans=False):
             display_tags = translate_text(art['item_tags']) if (need_trans and art['item_tags']) else art['item_tags']
             badges = badge_styler(art['tag_html'])
             link_hash = str(abs(hash(art['link'])))[:10]
-            
-            # 合併副標一行
             tags_part = f"<span class='story-tags'>{display_tags}</span> · " if display_tags else ""
-            meta_content = f"{tags_part}{art['source']} | {art['time'].strftime('%H:%M')}"
-            
             html += f"""
             <div class='story-block' id='sb-{link_hash}' data-link='{art['link']}'>
                 <div class='headline-wrapper'>
@@ -146,7 +148,7 @@ def render_column(data, title, need_trans=False):
                         <a class='headline' href='{art['link']}' target='_blank'>{display_title}</a>
                     </div>
                 </div>
-                <div class='meta-line'>{meta_content}</div>
+                <div class='meta-line'>{tags_part}{art['source']} | {art['time'].strftime('%H:%M')}</div>
             </div>"""
     return html + "</div>"
 
@@ -154,6 +156,7 @@ def main():
     intl_raw = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_raw = fetch_data(CONFIG['FEEDS']['JK'])
     tw_raw = fetch_data(CONFIG['FEEDS']['TW'])
+    
     special_sites = [
         ("CIO Taiwan", "https://www.cio.com.tw/category/news/", ["h3.entry-title a"], "[分析]", ".category-label"),
         ("數位時代", "https://www.bnext.com.tw/articles", ["a.item_title"], "[數位]", ".item_tag")
@@ -162,6 +165,10 @@ def main():
     for name, url, sels, tag, tag_sel in special_sites:
         arts = fetch_from_html(name, url, sels, tag, tag_sel)
         tw_raw.setdefault(today_str, []).extend(arts)
+
+    now_str = datetime.datetime.now(TW_TZ).strftime('%Y-%m-%d %H:%M')
+    stats_list = "".join([f"<li>{v} - {k}</li>" for k, v in sorted(FINAL_STATS.items(), key=lambda x: x[1], reverse=True)])
+    diag_html = "".join([f"<div style='margin-bottom:5px;'>{log}</div>" for log in DIAGNOSTIC_LOGS])
 
     full_html = f"""
     <html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>{SITE_TITLE}</title>
@@ -179,8 +186,6 @@ def main():
         .headline {{ color: var(--link); text-decoration: none; font-size: 15px; font-weight: 600; line-height: 1.4; }}
         .meta-line {{ font-size: 11px; color: var(--tag); margin-top: 5px; margin-left: 28px; }}
         .story-tags {{ font-style: italic; color: var(--tag); }}
-        
-        /* 膠囊標籤樣式修正 */
         .badge {{ display: inline-block; padding: 1px 6px; font-size: 10px; border-radius: 4px; margin-right: 6px; font-weight: 800; line-height: 16px; white-space: nowrap; height: 18px; align-self: flex-start; margin-top: 2px; }}
         .badge-x {{ background: #1da1f2 !important; color: #fff !important; }}
         .badge-analysis {{ background: #673ab7 !important; color: #fff !important; }}
@@ -189,17 +194,20 @@ def main():
         .badge-jp {{ background: #ff5722 !important; color: #fff !important; }}
         .badge-digital {{ background: #27ae60 !important; color: #fff !important; }}
         .badge-default {{ background: #888; color: #fff; }}
-
         .star-btn {{ cursor: pointer; color: #ddd; font-size: 18px; margin-right: 10px; float: left; }}
         .star-btn.active {{ color: #f1c40f; }}
         .kw-highlight {{ color: var(--kw); font-weight: bold; background: #ff980015; }}
         .btn {{ cursor: pointer; padding: 5px 12px; border: 1px solid var(--text); font-size: 11px; border-radius: 6px; background: var(--bg); color: var(--text); font-weight: bold; }}
+        .debug-footer {{ margin-top: 50px; padding: 20px; background: #8882; color: #888; font-family: monospace; font-size: 12px; border-top: 2px solid var(--border); }}
         body.only-stars .story-block:not(.has-star) {{ display: none; }}
     </style></head><body>
         <div class='header'><h1 style='margin:0; font-size:20px;'>{SITE_TITLE}</h1>
-        <div><span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span></div></div>
+        <div><span class='btn' onclick='toggleStats()'>📊 統計</span> <span class='btn' onclick='document.body.classList.toggle("only-stars")'>★ 精選</span></div></div>
+        <div id='stats-panel' style='display:none; padding:15px; background:#8882; border-bottom:1px solid var(--border); font-size:11px;'><ul style='column-count:3; list-style:none; padding:0; margin:0;'>{stats_list}</ul></div>
         <div class='wrapper'>{render_column(intl_raw, "Global Strategy", True)}{render_column(jk_raw, "Japan/Korea", True)}{render_column(tw_raw, "Taiwan Tech", False)}</div>
+        <div class='debug-footer'><h3>🛠️ 診斷報告</h3>{diag_html}</div>
         <script>
+            function toggleStats() {{ const p = document.getElementById('stats-panel'); p.style.display = (p.style.display==='block')?'none':'block'; }}
             function toggleStar(h) {{
                 const el = document.getElementById('sb-'+h); const btn = el.querySelector('.star-btn'); const link = el.getAttribute('data-link');
                 let s = JSON.parse(localStorage.getItem('tech_stars')||'[]');
