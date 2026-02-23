@@ -11,10 +11,10 @@
       {"url": "https://feeds.macrumors.com/MacRumors-All", "tag": ""},
       {"url": "https://www.bleepingcomputer.com/feed/", "tag": "[資安]"},
       {"url": "https://thenewstack.io/blog/feed/", "tag": ""},
-      {"url": "https://www.wsj.com/xml/rss/3_7455.xml", "tag": "[WSJ]"},
+      {"url": "https://www.wsj.com/xml/rss/3_7455.xml", "tag": ""},
       {"url": "https://nitter.net/TechTarget/rss", "tag": "[X]"},
-      {"url": "https://nitter.net/BleepinComputer/rss", "tag": "[資安][X]"},
-      {"url": "https://nitter.net/WSJTech/rss", "tag": "[WSJ][X]"},
+      {"url": "https://nitter.net/BleepinComputer/rss", "tag": "[X]"},
+      {"url": "https://nitter.net/WSJTech/rss", "tag": "[X]"},
       {"url": "https://nitter.net/Techmeme/rss", "tag": "[X]"}
     ],
     "JK": [
@@ -25,12 +25,12 @@
       {"url": "https://nitter.net/itmedia_news/rss", "tag": "[日][X]"}
     ],
     "TW": [
-      {"url": "https://www.ithome.com.tw/rss", "tag": ""},
+      {"url": "https://www.ithome.com.tw/rss", "tag": "[iThome]"},
       {"url": "https://technews.tw/feed/", "tag": ""},
       {"url": "https://www.digitimes.com.tw/rss/news.xml", "tag": ""},
-      {"url": "https://www.cio.com.tw/feed/", "tag": "[分析]"},
-      {"url": "https://www.bnext.com.tw/rss", "tag": "[數位]"},
-      {"url": "https://nitter.net/bnextmedia/rss", "tag": "[數位][X]"},
+      {"url": "https://www.cio.com.tw/feed/", "tag": ""},
+      {"url": "https://www.bnext.com.tw/rss", "tag": ""},
+      {"url": "https://nitter.net/bnextmedia/rss", "tag": "[X]"},
       {"url": "https://nitter.net/ithome/rss", "tag": "[X]"}
     ]
   },
