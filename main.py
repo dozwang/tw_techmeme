@@ -8,7 +8,7 @@ if sys.platform != 'win32':
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 配置 ---
-VERSION = "2.5.3"
+VERSION = "2.5.5"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 MODEL_NAME = "gemma-3-27b-it" 
@@ -29,8 +29,9 @@ def load_config():
 CONFIG = load_config()
 
 def get_processed_content(articles, zone_name):
+    """【v2.5.5】確保所有子新聞也同步翻譯"""
     if not client or not articles: return [[a] for a in articles]
-    print(f"\n>>> 處理 {zone_name} 區域，共 {len(articles)} 則新聞")
+    print(f"\n>>> 處理 {zone_name}，共 {len(articles)} 則")
     chunk_size = 10 
     final_clusters = []
     used_indices = set()
@@ -39,12 +40,13 @@ def get_processed_content(articles, zone_name):
         chunk = articles[start : start + chunk_size]
         titles_input = "\n".join([f"ID_{i+start}: {a['raw_title']}" for i, a in enumerate(chunk)])
         prompt = f"""
-        任務：翻譯為繁體中文並依公司聚合。
-        1. 移除 Send tips, URL, Axios, 📩, [X] 等雜訊。
+        任務：將標題翻譯為繁體中文並依核心公司聚合。
+        1. 移除雜訊([日], [韓], [X], URL, Axios, 📩)。
         2. 術語轉換：智能->智慧、數據->資料、芯片->晶片、算力->運算力、副駕駛->Copilot。
-        3. 聚合：主體公司相同則必須分在同組。
-        4. 必須回傳純 JSON 格式：[ {{"company": "公司", "indices": [編號], "titles": ["翻譯標題"]}} ]
-        清單：{titles_input}
+        3. 聚合：公司相同則必須分在同組。
+        4. 必須回傳純 JSON 格式，且 titles 陣列長度必須與 indices 一致。
+        [ {{"company": "公司", "indices": [編號], "titles": ["翻譯標題"]}} ]
+        待處理：{titles_input}
         """
         retry_count = 0
         while retry_count < 2:
@@ -55,21 +57,25 @@ def get_processed_content(articles, zone_name):
                     data = json.loads(json_match.group())
                     for group in data:
                         cluster = []
+                        # 核心修正：對應 indices 與 titles 同步翻譯
                         for i, idx in enumerate(group['indices']):
                             if idx < len(articles) and idx not in used_indices:
                                 item = articles[idx]
-                                item['display_title'] = re.sub(r'https?://\S+|Send tips!|📩|\[X\]', '', group['titles'][i]).strip()
-                                cluster.append(item); used_indices.add(idx)
+                                # 取得該索引對應的翻譯標題
+                                trans_t = group['titles'][i] if i < len(group['titles']) else item['raw_title']
+                                item['display_title'] = re.sub(r'https?://\S+|Send tips!|📩|\[.*?\]', '', trans_t).strip()
+                                cluster.append(item)
+                                used_indices.add(idx)
                         if cluster: final_clusters.append(cluster)
                     break 
                 else: break
             except Exception:
-                time.sleep(30); retry_count += 1
+                time.sleep(20); retry_count += 1
         time.sleep(2) 
 
     for i, a in enumerate(articles):
         if i not in used_indices:
-            a['display_title'] = re.sub(r'\[X\]|Send tips!', '', a['raw_title']).strip()
+            a['display_title'] = re.sub(r'\[.*?\]|Send tips!', '', a['raw_title']).strip()
             final_clusters.append([a])
     return final_clusters
 
@@ -94,7 +100,7 @@ def fetch_raw_data(feed_list):
     return all_articles
 
 def main():
-    print(f"Executing {SITE_TITLE} v{VERSION}...")
+    print(f"Building {SITE_TITLE} v{VERSION}...")
     intl = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['INTL']), "Global")
     jk = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['JK']), "JK")
     tw = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['TW']), "Taiwan")
@@ -104,26 +110,30 @@ def main():
         for g in sorted(clusters, key=lambda x: x[0]['time'], reverse=True):
             m = g[0]; hid = str(abs(hash(m['link'])))[:10]
             badge = f'<span class="badge-ithome">iThome</span>' if "iThome" in m['tag'] else (f'<span class="badge-tag">{m["tag"]}</span>' if m["tag"] else "")
+            
+            # 主新聞渲染
             html += f"""
             <div class='story-block' id='sb-{hid}' data-link='{m['link']}' data-ts='{int(m['time'].timestamp())}'>
                 <div class='headline-wrapper'>
-                    <span class='star-btn' onclick='toggleStar("{hid}")'>★</span>
+                    <div class='star-cell'><span class='star-btn' onclick='toggleStar("{hid}")'>★</span></div>
                     <div class='head-content'>
                         <div class='title-row'>
                             {badge}<a class='headline' href='{m['link']}' target='_blank'>{m.get('display_title', m['raw_title'])}</a>
                         </div>
                     </div>
                     <div class='action-btns'>
-                        <span class='btn-restore' onclick='restoreItem("{hid}")'>↺恢復</span>
-                        <span class='btn-hide' onclick='toggleHide("{hid}")'>✕隱藏</span>
+                        <span class='btn-restore' onclick='restoreItem("{hid}")'>恢復</span>
+                        <span class='btn-hide' onclick='toggleHide("{hid}")'>隱藏</span>
                     </div>
                 </div>
                 <div class='meta-line'>{m['source']} | {m['time'].strftime('%m/%d %H:%M')}</div>
             """
+            # 子新聞渲染：核心修正，使用 s.get('display_title')
             if len(g) > 1:
                 html += "<div class='sub-news-list'>"
                 for s in g[1:6]:
-                    html += f"<div class='sub-item'>• <a href='{s['link']}' target='_blank'>{s.get('display_title', s['raw_title'])}</a></div>"
+                    display_sub = s.get('display_title', s['raw_title'])
+                    html += f"<div class='sub-item'>• <a href='{s['link']}' target='_blank'>{display_sub}</a></div>"
                 html += "</div>"
             html += "</div>"
         return html
@@ -142,18 +152,19 @@ def main():
         .story-block {{ padding: 12px 0; border-bottom: 1px solid var(--border); }}
         .story-block.is-hidden {{ display: none; }}
         body.show-hidden .story-block.is-hidden {{ display: block !important; opacity: 0.4; }}
-        .headline-wrapper {{ display: flex; align-items: flex-start; gap: 8px; width: 100%; }}
-        .head-content {{ flex-grow: 1; min-width: 0; }}
-        .title-row {{ display: flex; align-items: flex-start; gap: 5px; }}
+        .headline-wrapper {{ display: flex; align-items: flex-start; width: 100%; }}
+        .star-cell {{ width: 24px; flex-shrink: 0; padding-top: 2px; }}
+        .head-content {{ flex: 1; min-width: 0; padding: 0 8px; }}
+        .title-row {{ display: flex; align-items: flex-start; gap: 5px; flex-wrap: wrap; }}
         .headline {{ font-size: 14.5px; font-weight: 800; text-decoration: none; color: var(--link); line-height: 1.3; word-break: break-word; }}
-        .action-btns {{ display: flex; gap: 10px; flex-shrink: 0; margin-left: auto; align-items: center; white-space: nowrap; }}
-        .meta-line {{ font-size: 10px; color: var(--tag); margin: 5px 0 0 23px; }}
-        .sub-news-list {{ margin: 6px 0 0 23px; border-left: 1px solid var(--border); padding-left: 10px; }}
+        .action-btns {{ flex-shrink: 0; display: flex; gap: 10px; padding-top: 3px; }}
+        .meta-line {{ font-size: 10px; color: var(--tag); margin: 4px 0 0 24px; }}
+        .sub-news-list {{ margin: 6px 0 0 24px; border-left: 1px solid var(--border); padding-left: 10px; }}
         .sub-item {{ font-size: 12.5px; margin-bottom: 3px; opacity: 0.8; }}
         .badge-tag, .badge-ithome {{ color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; flex-shrink: 0; }}
         .badge-tag {{ background: #888; }} .badge-ithome {{ background: var(--hi); font-weight: 800; }}
-        .star-btn {{ cursor: pointer; color: var(--tag); font-size: 15px; flex-shrink: 0; }}
-        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 11px; opacity: 0.5; }}
+        .star-btn {{ cursor: pointer; color: var(--tag); font-size: 15px; }}
+        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 11px; }}
         .btn-restore {{ cursor: pointer; color: var(--hi); font-size: 11px; display: none; font-weight: bold; }}
         body.show-hidden .btn-restore {{ display: inline-block; }}
         .btn {{ cursor: pointer; padding: 4px 10px; border: 1px solid var(--border); font-size: 11px; border-radius: 4px; background: var(--bg); color: var(--text); font-weight: bold; }}
