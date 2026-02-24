@@ -1,4 +1,4 @@
-import feedparser, datetime, pytz, os, requests, json, re, sys
+import feedparser, datetime, pytz, os, requests, json, re, sys, time
 from dateutil import parser as date_parser
 from google import genai
 import urllib3
@@ -8,11 +8,10 @@ if sys.platform != 'win32':
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 核心配置 ---
-VERSION = "2.3.7"
+VERSION = "2.4.2"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-# 修正模型名稱為最新穩定版
-MODEL_NAME = "gemini-2.0-flash" 
+MODEL_NAME = "gemini-2.0-flash-lite" 
 
 client = genai.Client(api_key=GEMINI_KEY) if GEMINI_KEY else None
 
@@ -34,49 +33,59 @@ def get_processed_content(articles, zone_name):
     global TOTAL_TOKENS
     if not client or not articles: return [[a] for a in articles]
     
-    print(f"\n>>> 開始處理 {zone_name} 區域，總計 {len(articles)} 則新聞")
-    chunk_size = 12 # 稍微增加分塊大小提升效率
+    print(f"\n>>> 處理 {zone_name} 區域，共 {len(articles)} 則新聞")
+    chunk_size = 20 
     final_clusters = []
     used_indices = set()
 
     for start in range(0, len(articles), chunk_size):
         chunk = articles[start : start + chunk_size]
-        TOTAL_TOKENS += (len(chunk) * 110)
-        
         titles_input = "\n".join([f"ID_{i+start}: {a['raw_title']}" for i, a in enumerate(chunk)])
-        prompt = f"""
-        任務：翻譯為繁中並依公司聚合。
-        1. 移除雜訊(Send tips, URL, Axios)。
-        2. 術語：智能->智慧、數據->資料、芯片->晶片、算力->運算力。
-        3. 必須回傳純 JSON 格式。
-        [ {{"company": "公司名", "indices": [編號], "titles": ["翻譯標題"]}} ]
         
+        prompt = f"""
+        任務：翻譯為繁體中文並依公司聚合。
+        指令：
+        1. 翻譯為繁中，徹底移除 Send tips, URL, Axios 等雜訊。
+        2. 術語轉換：智能->智慧、數據->資料、芯片->晶片、算力->運算力、副駕駛->Copilot。
+        3. 聚合：主體公司相同則必須分在同組，忽略標題動作差異。
+        4. 必須回傳純 JSON 格式。
+        範例格式：[ {{"company": "公司名", "indices": [編號], "titles": ["翻譯標題"]}} ]
         待處理：
         {titles_input}
         """
-        
-        try:
-            # 使用修正後的 MODEL_NAME
-            response = client.models.generate_content(model=MODEL_NAME, contents=prompt, config={'temperature': 0.0})
-            json_match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
-            
-            if json_match:
-                data = json.loads(json_match.group())
-                for group in data:
-                    cluster = []
-                    for i, idx in enumerate(group['indices']):
-                        if idx < len(articles) and idx not in used_indices:
-                            item = articles[idx]
-                            trans_title = re.sub(r'https?://\S+|Send tips!|📩', '', group['titles'][i]).strip()
-                            item['display_title'] = trans_title
-                            print(f"  [OK] 翻譯成功: {trans_title[:40]}")
-                            cluster.append(item); used_indices.add(idx)
-                    if cluster: final_clusters.append(cluster)
-            else:
-                print(f"  [!] 解析 JSON 失敗，AI 回傳內容不符合格式")
-        except Exception as e:
-            print(f"  [Error] API 呼叫失敗: {str(e)}")
-            continue
+
+        retry_count = 0
+        max_retries = 3
+        while retry_count < max_retries:
+            try:
+                response = client.models.generate_content(model=MODEL_NAME, contents=prompt, config={'temperature': 0.0})
+                json_match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
+                
+                if json_match:
+                    data = json.loads(json_match.group())
+                    for group in data:
+                        cluster = []
+                        for i, idx in enumerate(group['indices']):
+                            if idx < len(articles) and idx not in used_indices:
+                                item = articles[idx]
+                                clean_t = re.sub(r'https?://\S+|Send tips!|techmeme.com/contact', '', group['titles'][i]).strip()
+                                item['display_title'] = clean_t
+                                cluster.append(item); used_indices.add(idx)
+                        if cluster: final_clusters.append(cluster)
+                    time.sleep(1.5)
+                    break 
+                else:
+                    print(f"  解析失敗，區塊：{start}")
+                    break
+            except Exception as e:
+                if "429" in str(e):
+                    wait_time = 45 * (retry_count + 1)
+                    print(f"  配額限制，等待 {wait_time} 秒後重試...")
+                    time.sleep(wait_time)
+                    retry_count += 1
+                else:
+                    print(f"  API 異常: {str(e)}")
+                    break
 
     for i, a in enumerate(articles):
         if i not in used_indices:
@@ -95,7 +104,7 @@ def fetch_raw_data(feed_list):
             feed = feedparser.parse(resp.content)
             s_name = (feed.feed.title if 'title' in feed.feed else item['url'].split('/')[2]).split('|')[0].strip()[:10]
             for entry in feed.entries[:15]:
-                title = re.sub(r'https?://\S+|Send tips!|📩', '', entry.title).strip()
+                title = entry.title.strip()
                 if not title: continue
                 try: p_date = date_parser.parse(entry.get('published', entry.get('pubDate', entry.get('updated', None))), tzinfos=TZ_INFOS).astimezone(TW_TZ)
                 except: p_date = now_tw
@@ -106,7 +115,8 @@ def fetch_raw_data(feed_list):
     return all_articles
 
 def main():
-    print(f"Executing {SITE_TITLE} v{VERSION}...")
+    print(f"Building {SITE_TITLE} v{VERSION}...")
+    
     intl = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['INTL']), "Global")
     jk = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['JK']), "JK")
     tw = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['TW']), "Taiwan")
@@ -116,6 +126,7 @@ def main():
         for g in sorted(clusters, key=lambda x: x[0]['time'], reverse=True):
             m = g[0]; hid = str(abs(hash(m['link'])))[:10]
             badge = f'<span class="badge-ithome">iThome</span>' if "iThome" in m['tag'] else (f'<span class="badge-tag">{m["tag"]}</span>' if m["tag"] else "")
+            
             html += f"""
             <div class='story-block' id='sb-{hid}' data-link='{m['link']}' data-ts='{int(m['time'].timestamp())}'>
                 <div class='headline-wrapper'>
@@ -126,8 +137,8 @@ def main():
                         </div>
                     </div>
                     <div class='action-btns'>
-                        <span class='btn-restore' onclick='restoreItem("{hid}")'>↺</span>
-                        <span class='btn-hide' onclick='toggleHide("{hid}")'>✕</span>
+                        <span class='btn-restore' onclick='restoreItem("{hid}")'>↺恢復</span>
+                        <span class='btn-hide' onclick='toggleHide("{hid}")'>✕隱藏</span>
                     </div>
                 </div>
                 <div class='meta-line'>{m['source']} | {m['time'].strftime('%m/%d %H:%M')}</div>
@@ -140,9 +151,6 @@ def main():
             html += "</div>"
         return html
 
-    stats_header = f"<div class='token-bar'>📊 本次運算估算消耗：<strong>{TOTAL_TOKENS}</strong> Tokens</div>"
-    stats_rows = "".join([f"<li><span class='s-label'>{k}</span><span class='s-bar'><i style='width:{min(v*5,100)}%'></i></span><span class='s-count'>{v}</span></li>" for k,v in sorted(FINAL_STATS.items(), key=lambda x:x[1], reverse=True)])
-
     full_html = f"""
     <html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>{SITE_TITLE}</title>
     <style>
@@ -151,15 +159,13 @@ def main():
         * {{ box-sizing: border-box; }}
         body {{ font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 15px 50px 15px; }}
         .header {{ padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 1000; }}
-        #stats-p {{ display: none; padding: 15px 0; border-bottom: 1px solid var(--border); }}
-        .token-bar {{ background: #e67e22; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; margin-bottom: 10px; display: inline-block; }}
-        #stats-p ul {{ list-style: none; padding: 0; margin: 0; column-count: 2; column-gap: 30px; }}
         .wrapper {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }}
         @media (max-width: 900px) {{ .wrapper {{ grid-template-columns: 1fr; }} }}
         .river-title {{ font-size: 16px; font-weight: 900; border-bottom: 2px solid var(--text); margin: 10px 0; }}
         .story-block {{ padding: 12px 0; border-bottom: 1px solid var(--border); }}
         .story-block.is-hidden {{ display: none; }}
         body.show-hidden .story-block.is-hidden {{ display: block !important; opacity: 0.4; }}
+        body.show-hidden .btn-restore {{ display: inline-block !important; }}
         .headline-wrapper {{ display: flex; align-items: flex-start; gap: 8px; width: 100%; }}
         .head-content {{ flex-grow: 1; min-width: 0; }}
         .title-row {{ display: flex; align-items: flex-start; gap: 5px; }}
@@ -168,20 +174,20 @@ def main():
         .meta-line {{ font-size: 10px; color: var(--tag); margin: 5px 0 0 23px; }}
         .sub-news-list {{ margin: 6px 0 0 23px; border-left: 1px solid var(--border); padding-left: 10px; }}
         .sub-item {{ font-size: 12.5px; margin-bottom: 3px; opacity: 0.8; }}
-        .badge-tag, .badge-ithome {{ color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; }}
-        .badge-tag {{ background: #888; }} .badge-ithome {{ background: var(--hi); font-weight: 800; }}
+        .badge-tag {{ background: #888; color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; }}
+        .badge-ithome {{ background: var(--hi); color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; font-weight: 800; }}
         .star-btn {{ cursor: pointer; color: var(--tag); font-size: 15px; }}
+        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 11px; opacity: 0.3; }}
+        .btn-restore {{ cursor: pointer; color: var(--hi); font-size: 11px; display: none; font-weight: bold; }}
         .btn {{ cursor: pointer; padding: 4px 10px; border: 1px solid var(--border); font-size: 11px; border-radius: 4px; background: var(--bg); color: var(--text); font-weight: bold; }}
     </style></head><body>
         <div class='header'>
             <h1 style='margin:0; font-size:16px;'>{SITE_TITLE} v{VERSION}</h1>
             <div style='display:flex; gap:8px;'>
-                <span class='btn' onclick='document.getElementById("stats-p").style.display=(document.getElementById("stats-p").style.display==="block")?"none":"block"'>📊 分析</span>
-                <span class='btn' onclick='document.body.classList.toggle("show-hidden")'>👁️ 恢復</span>
-                <span class='btn' onclick='location.reload()'>🔄</span>
+                <span class='btn' onclick='document.body.classList.toggle("show-hidden")'>顯示已隱藏</span>
+                <span class='btn' onclick='location.reload()'>重新整理</span>
             </div>
         </div>
-        <div id='stats-p'>{stats_header}<ul>{stats_rows}</ul></div>
         <div class='wrapper'>
             <div class='river'><div class='river-title'>Global</div>{render(intl)}</div>
             <div class='river'><div class='river-title'>JK</div>{render(jk)}</div>
