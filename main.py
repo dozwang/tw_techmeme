@@ -8,7 +8,7 @@ if sys.platform != 'win32':
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 配置 ---
-VERSION = "2.5.5"
+VERSION = "2.5.6"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 MODEL_NAME = "gemma-3-27b-it" 
@@ -17,7 +17,6 @@ client = genai.Client(api_key=GEMINI_KEY) if GEMINI_KEY else None
 
 TW_TZ = pytz.timezone('Asia/Taipei')
 TZ_INFOS = {"PST": pytz.timezone("US/Pacific"), "PDT": pytz.timezone("US/Pacific")}
-FINAL_STATS = {}
 
 def load_config():
     if os.path.exists('feeds.json'):
@@ -29,25 +28,28 @@ def load_config():
 CONFIG = load_config()
 
 def get_processed_content(articles, zone_name):
-    """【v2.5.5】確保所有子新聞也同步翻譯"""
+    """【v2.5.6】強勢實體聚合邏輯"""
     if not client or not articles: return [[a] for a in articles]
     print(f"\n>>> 處理 {zone_name}，共 {len(articles)} 則")
-    chunk_size = 10 
-    final_clusters = []
-    used_indices = set()
-
+    
+    chunk_size = 15 
+    company_map = {} # 格式: { "Apple": [idx1, idx2], ... }
+    translated_titles = {} # 格式: { idx: "翻譯標題" }
+    
     for start in range(0, len(articles), chunk_size):
         chunk = articles[start : start + chunk_size]
         titles_input = "\n".join([f"ID_{i+start}: {a['raw_title']}" for i, a in enumerate(chunk)])
+        
         prompt = f"""
-        任務：將標題翻譯為繁體中文並依核心公司聚合。
-        1. 移除雜訊([日], [韓], [X], URL, Axios, 📩)。
-        2. 術語轉換：智能->智慧、數據->資料、芯片->晶片、算力->運算力、副駕駛->Copilot。
-        3. 聚合：公司相同則必須分在同組。
-        4. 必須回傳純 JSON 格式，且 titles 陣列長度必須與 indices 一致。
-        [ {{"company": "公司", "indices": [編號], "titles": ["翻譯標題"]}} ]
+        任務：從標題提取核心公司，並翻譯標題為繁體中文。
+        1. 標註核心公司(Entity)：若無明確公司，標註為 "None"。
+        2. 翻譯標題：移除雜訊([日],[韓],Send tips, Axios, 📩)。
+        3. 術語：智能->智慧、數據->資料、芯片->晶片、算力->運算力。
+        4. 必須回傳純 JSON 陣列：
+        [ {{"id": 編號, "company": "核心公司", "title": "翻譯標題"}} ]
         待處理：{titles_input}
         """
+        
         retry_count = 0
         while retry_count < 2:
             try:
@@ -55,28 +57,41 @@ def get_processed_content(articles, zone_name):
                 json_match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
                 if json_match:
                     data = json.loads(json_match.group())
-                    for group in data:
-                        cluster = []
-                        # 核心修正：對應 indices 與 titles 同步翻譯
-                        for i, idx in enumerate(group['indices']):
-                            if idx < len(articles) and idx not in used_indices:
-                                item = articles[idx]
-                                # 取得該索引對應的翻譯標題
-                                trans_t = group['titles'][i] if i < len(group['titles']) else item['raw_title']
-                                item['display_title'] = re.sub(r'https?://\S+|Send tips!|📩|\[.*?\]', '', trans_t).strip()
-                                cluster.append(item)
-                                used_indices.add(idx)
-                        if cluster: final_clusters.append(cluster)
+                    for item in data:
+                        idx = item['id']
+                        comp = item['company'].strip().capitalize()
+                        translated_titles[idx] = item['title'].strip()
+                        if comp != "None":
+                            if comp not in company_map: company_map[comp] = []
+                            company_map[comp].append(idx)
                     break 
                 else: break
             except Exception:
-                time.sleep(20); retry_count += 1
-        time.sleep(2) 
+                time.sleep(15); retry_count += 1
+        time.sleep(1)
 
+    # --- Python 硬聚合階段 ---
+    final_clusters = []
+    used_indices = set()
+
+    # 1. 優先處理有公司的群組
+    for comp, indices in company_map.items():
+        cluster = []
+        for idx in indices:
+            if idx < len(articles) and idx not in used_indices:
+                a = articles[idx]
+                a['display_title'] = translated_titles.get(idx, a['raw_title'])
+                cluster.append(a); used_indices.add(idx)
+        if cluster: final_clusters.append(cluster)
+
+    # 2. 處理沒有公司的新聞 (依時間排序)
+    remaining = []
     for i, a in enumerate(articles):
         if i not in used_indices:
-            a['display_title'] = re.sub(r'\[.*?\]|Send tips!', '', a['raw_title']).strip()
-            final_clusters.append([a])
+            a['display_title'] = translated_titles.get(i, a['raw_title'])
+            remaining.append([a])
+    
+    final_clusters.extend(remaining)
     return final_clusters
 
 def fetch_raw_data(feed_list):
@@ -88,14 +103,13 @@ def fetch_raw_data(feed_list):
             resp = requests.get(item['url'], headers={'User-Agent': 'Mozilla/5.0'}, timeout=15, verify=False)
             feed = feedparser.parse(resp.content)
             s_name = (feed.feed.title if 'title' in feed.feed else item['url'].split('/')[2]).split('|')[0].strip()[:10]
-            for entry in feed.entries[:10]:
+            for entry in feed.entries[:12]:
                 title = entry.title.strip()
                 if not title: continue
                 try: p_date = date_parser.parse(entry.get('published', entry.get('pubDate', entry.get('updated', None))), tzinfos=TZ_INFOS).astimezone(TW_TZ)
                 except: p_date = now_tw
                 if p_date < limit_date: continue
                 all_articles.append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date, 'tag': item['tag']})
-                FINAL_STATS[s_name] = FINAL_STATS.get(s_name, 0) + 1
         except: continue
     return all_articles
 
@@ -107,11 +121,11 @@ def main():
 
     def render(clusters):
         html = ""
+        # 排序邏輯：有公司的群組會依照該組最新一則新聞的時間排序
         for g in sorted(clusters, key=lambda x: x[0]['time'], reverse=True):
             m = g[0]; hid = str(abs(hash(m['link'])))[:10]
             badge = f'<span class="badge-ithome">iThome</span>' if "iThome" in m['tag'] else (f'<span class="badge-tag">{m["tag"]}</span>' if m["tag"] else "")
             
-            # 主新聞渲染
             html += f"""
             <div class='story-block' id='sb-{hid}' data-link='{m['link']}' data-ts='{int(m['time'].timestamp())}'>
                 <div class='headline-wrapper'>
@@ -128,12 +142,10 @@ def main():
                 </div>
                 <div class='meta-line'>{m['source']} | {m['time'].strftime('%m/%d %H:%M')}</div>
             """
-            # 子新聞渲染：核心修正，使用 s.get('display_title')
             if len(g) > 1:
                 html += "<div class='sub-news-list'>"
-                for s in g[1:6]:
-                    display_sub = s.get('display_title', s['raw_title'])
-                    html += f"<div class='sub-item'>• <a href='{s['link']}' target='_blank'>{display_sub}</a></div>"
+                for s in g[1:8]:
+                    html += f"<div class='sub-item'>• <a href='{s['link']}' target='_blank'>{s.get('display_title', s['raw_title'])}</a></div>"
                 html += "</div>"
             html += "</div>"
         return html
@@ -168,8 +180,7 @@ def main():
         .btn-restore {{ cursor: pointer; color: var(--hi); font-size: 11px; display: none; font-weight: bold; }}
         body.show-hidden .btn-restore {{ display: inline-block; }}
         .btn {{ cursor: pointer; padding: 4px 10px; border: 1px solid var(--border); font-size: 11px; border-radius: 4px; background: var(--bg); color: var(--text); font-weight: bold; }}
-    </style>
-    </head><body>
+    </style></head><body>
         <div class='header'>
             <h1 style='margin:0; font-size:16px;'>{SITE_TITLE} v{VERSION}</h1>
             <div style='display:flex; gap:8px;'>
