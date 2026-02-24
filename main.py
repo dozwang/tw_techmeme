@@ -7,7 +7,7 @@ if sys.platform != 'win32':
     sys.stdout.reconfigure(encoding='utf-8')
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-VERSION = "2.3.3"
+VERSION = "2.3.6"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_KEY) if GEMINI_KEY else None
@@ -26,55 +26,63 @@ def load_config():
 
 CONFIG = load_config()
 
-def get_processed_content(articles):
-    """【v2.3.3】強化聚合與 Token 計數"""
+def get_processed_content(articles, zone_name):
+    """【v2.3.6】增加 Log 輸出，即時監控翻譯與聚合狀態"""
     global TOTAL_TOKENS
     if not client or not articles: return [[a] for a in articles]
     
-    # 基礎 Token 估算：每 1 則新聞標題約 80 Tokens (輸入+處理)
-    TOTAL_TOKENS += (len(articles) * 85)
-    
-    titles_input = "\n".join([f"ID_{i}: {a['raw_title']}" for i, a in enumerate(articles)])
-    prompt = f"""
-    任務：翻譯為繁體中文並依核心公司聚合。
-    指令：
-    1. 移除 Send tips, URL, Axios, 📩 等雜訊。
-    2. 術語轉換：智能->智慧、數據->資料、芯片->晶片、算力->運算力。
-    3. 強制聚合：所有關於同家公司(如 Anthropic, Apple)的新聞必須分在同組，忽略動作差異。
-    4. 必須回傳純 JSON。
-    
-    範例格式：
-    [ {{"company": "Apple", "indices": [0, 5], "titles": ["翻譯1", "翻譯2"]}} ]
-    
-    待處理：
-    {titles_input}
-    """
-    
-    try:
-        response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt, config={'temperature': 0.0})
-        json_match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
-        if not json_match: return [[a] for a in articles]
+    print(f"\n>>> 開始處理 {zone_name} 區域，總計 {len(articles)} 則新聞")
+    chunk_size = 10
+    final_clusters = []
+    used_indices = set()
+
+    for start in range(0, len(articles), chunk_size):
+        chunk = articles[start : start + chunk_size]
+        TOTAL_TOKENS += (len(chunk) * 120)
         
-        data = json.loads(json_match.group())
-        final_clusters = []
-        used = set()
+        titles_input = "\n".join([f"ID_{i+start}: {a['raw_title']}" for i, a in enumerate(chunk)])
+        prompt = f"""
+        任務：翻譯為繁中並依公司聚合。
+        1. 移除 Send tips, URL, Axios 等雜訊。
+        2. 術語：智能->智慧、數據->資料、芯片->晶片、算力->運算力。
+        3. 必須回傳純 JSON 格式。
+        [ {{"company": "公司名", "indices": [編號], "titles": ["翻譯後標題"]}} ]
+        待處理：
+        {titles_input}
+        """
         
-        for group in data:
-            cluster = []
-            for i, idx in enumerate(group['indices']):
-                if idx < len(articles) and idx not in used:
-                    item = articles[idx]
-                    item['display_title'] = group['titles'][i]
-                    cluster.append(item); used.add(idx)
-            if cluster: final_clusters.append(cluster)
+        try:
+            response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt, config={'temperature': 0.0})
+            json_match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
             
-        for i, a in enumerate(articles):
-            if i not in used:
-                a['display_title'] = a['raw_title']
-                final_clusters.append([a])
-        return final_clusters
-    except:
-        return [[a] for a in articles]
+            if json_match:
+                data = json.loads(json_match.group())
+                for group in data:
+                    cluster = []
+                    for i, idx in enumerate(group['indices']):
+                        if idx < len(articles) and idx not in used_indices:
+                            item = articles[idx]
+                            trans_title = re.sub(r'https?://\S+|Send tips!|📩', '', group['titles'][i]).strip()
+                            item['display_title'] = trans_title
+                            
+                            # 在 Log 中印出翻譯成功的新聞 (只印出部分作為確認)
+                            print(f"  [OK] 原始: {item['raw_title'][:30]}... -> 翻譯: {trans_title}")
+                            
+                            cluster.append(item); used_indices.add(idx)
+                    if cluster: final_clusters.append(cluster)
+            else:
+                print(f"  [!] Chunk {start}-{start+chunk_size} JSON 格式匹配失敗")
+        except Exception as e:
+            print(f"  [Error] Chunk {start}-{start+chunk_size} 處理異常: {str(e)}")
+            continue
+
+    # 補漏機制
+    for i, a in enumerate(articles):
+        if i not in used_indices:
+            a['display_title'] = a['raw_title']
+            final_clusters.append([a])
+            
+    return final_clusters
 
 def fetch_raw_data(feed_list):
     all_articles = []
@@ -86,7 +94,8 @@ def fetch_raw_data(feed_list):
             feed = feedparser.parse(resp.content)
             s_name = (feed.feed.title if 'title' in feed.feed else item['url'].split('/')[2]).split('|')[0].strip()[:10]
             for entry in feed.entries[:15]:
-                title = entry.title.strip()
+                title = re.sub(r'https?://\S+|Send tips!|📩', '', entry.title).strip()
+                if not title: continue
                 try: p_date = date_parser.parse(entry.get('published', entry.get('pubDate', entry.get('updated', None))), tzinfos=TZ_INFOS).astimezone(TW_TZ)
                 except: p_date = now_tw
                 if p_date < limit_date: continue
@@ -96,9 +105,12 @@ def fetch_raw_data(feed_list):
     return all_articles
 
 def main():
-    intl = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['INTL']))
-    jk = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['JK']))
-    tw = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['TW']))
+    print(f"Executing {SITE_TITLE} v{VERSION}...")
+    
+    # 分區域處理並帶入區域名稱供 Log 辨識
+    intl = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['INTL']), "Global")
+    jk = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['JK']), "JK")
+    tw = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['TW']), "Taiwan")
 
     def render(clusters):
         html = ""
@@ -129,7 +141,7 @@ def main():
             html += "</div>"
         return html
 
-    stats_header = f"<div class='token-bar'>💰 預估本次消耗：<strong>{TOTAL_TOKENS}</strong> Tokens</div>"
+    stats_header = f"<div class='token-bar'>📊 本次運算估算消耗：<strong>{TOTAL_TOKENS}</strong> Tokens</div>"
     stats_rows = "".join([f"<li><span class='s-label'>{k}</span><span class='s-bar'><i style='width:{min(v*5,100)}%'></i></span><span class='s-count'>{v}</span></li>" for k,v in sorted(FINAL_STATS.items(), key=lambda x:x[1], reverse=True)])
 
     full_html = f"""
@@ -157,8 +169,8 @@ def main():
         .meta-line {{ font-size: 10px; color: var(--tag); margin: 5px 0 0 23px; }}
         .sub-news-list {{ margin: 6px 0 0 23px; border-left: 1px solid var(--border); padding-left: 10px; }}
         .sub-item {{ font-size: 12.5px; margin-bottom: 3px; opacity: 0.8; }}
-        .badge-tag, .badge-ithome {{ color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; }}
-        .badge-tag {{ background: #888; }} .badge-ithome {{ background: var(--hi); font-weight: 800; }}
+        .badge-tag {{ background: #888; color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; }}
+        .badge-ithome {{ background: var(--hi); color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; font-weight: 800; }}
         .star-btn {{ cursor: pointer; color: var(--tag); font-size: 15px; }}
         .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 12px; opacity: 0.3; }}
         .btn-restore {{ cursor: pointer; color: var(--hi); font-size: 14px; display: none; font-weight: bold; }}
