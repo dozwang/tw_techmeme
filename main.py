@@ -7,9 +7,13 @@ if sys.platform != 'win32':
     sys.stdout.reconfigure(encoding='utf-8')
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-VERSION = "2.3.6"
+# --- 核心配置 ---
+VERSION = "2.3.7"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+# 修正模型名稱為最新穩定版
+MODEL_NAME = "gemini-2.0-flash" 
+
 client = genai.Client(api_key=GEMINI_KEY) if GEMINI_KEY else None
 
 TW_TZ = pytz.timezone('Asia/Taipei')
@@ -27,32 +31,33 @@ def load_config():
 CONFIG = load_config()
 
 def get_processed_content(articles, zone_name):
-    """【v2.3.6】增加 Log 輸出，即時監控翻譯與聚合狀態"""
     global TOTAL_TOKENS
     if not client or not articles: return [[a] for a in articles]
     
     print(f"\n>>> 開始處理 {zone_name} 區域，總計 {len(articles)} 則新聞")
-    chunk_size = 10
+    chunk_size = 12 # 稍微增加分塊大小提升效率
     final_clusters = []
     used_indices = set()
 
     for start in range(0, len(articles), chunk_size):
         chunk = articles[start : start + chunk_size]
-        TOTAL_TOKENS += (len(chunk) * 120)
+        TOTAL_TOKENS += (len(chunk) * 110)
         
         titles_input = "\n".join([f"ID_{i+start}: {a['raw_title']}" for i, a in enumerate(chunk)])
         prompt = f"""
         任務：翻譯為繁中並依公司聚合。
-        1. 移除 Send tips, URL, Axios 等雜訊。
+        1. 移除雜訊(Send tips, URL, Axios)。
         2. 術語：智能->智慧、數據->資料、芯片->晶片、算力->運算力。
         3. 必須回傳純 JSON 格式。
-        [ {{"company": "公司名", "indices": [編號], "titles": ["翻譯後標題"]}} ]
+        [ {{"company": "公司名", "indices": [編號], "titles": ["翻譯標題"]}} ]
+        
         待處理：
         {titles_input}
         """
         
         try:
-            response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt, config={'temperature': 0.0})
+            # 使用修正後的 MODEL_NAME
+            response = client.models.generate_content(model=MODEL_NAME, contents=prompt, config={'temperature': 0.0})
             json_match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
             
             if json_match:
@@ -64,19 +69,15 @@ def get_processed_content(articles, zone_name):
                             item = articles[idx]
                             trans_title = re.sub(r'https?://\S+|Send tips!|📩', '', group['titles'][i]).strip()
                             item['display_title'] = trans_title
-                            
-                            # 在 Log 中印出翻譯成功的新聞 (只印出部分作為確認)
-                            print(f"  [OK] 原始: {item['raw_title'][:30]}... -> 翻譯: {trans_title}")
-                            
+                            print(f"  [OK] 翻譯成功: {trans_title[:40]}")
                             cluster.append(item); used_indices.add(idx)
                     if cluster: final_clusters.append(cluster)
             else:
-                print(f"  [!] Chunk {start}-{start+chunk_size} JSON 格式匹配失敗")
+                print(f"  [!] 解析 JSON 失敗，AI 回傳內容不符合格式")
         except Exception as e:
-            print(f"  [Error] Chunk {start}-{start+chunk_size} 處理異常: {str(e)}")
+            print(f"  [Error] API 呼叫失敗: {str(e)}")
             continue
 
-    # 補漏機制
     for i, a in enumerate(articles):
         if i not in used_indices:
             a['display_title'] = a['raw_title']
@@ -106,8 +107,6 @@ def fetch_raw_data(feed_list):
 
 def main():
     print(f"Executing {SITE_TITLE} v{VERSION}...")
-    
-    # 分區域處理並帶入區域名稱供 Log 辨識
     intl = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['INTL']), "Global")
     jk = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['JK']), "JK")
     tw = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['TW']), "Taiwan")
@@ -169,11 +168,9 @@ def main():
         .meta-line {{ font-size: 10px; color: var(--tag); margin: 5px 0 0 23px; }}
         .sub-news-list {{ margin: 6px 0 0 23px; border-left: 1px solid var(--border); padding-left: 10px; }}
         .sub-item {{ font-size: 12.5px; margin-bottom: 3px; opacity: 0.8; }}
-        .badge-tag {{ background: #888; color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; }}
-        .badge-ithome {{ background: var(--hi); color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; font-weight: 800; }}
+        .badge-tag, .badge-ithome {{ color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; }}
+        .badge-tag {{ background: #888; }} .badge-ithome {{ background: var(--hi); font-weight: 800; }}
         .star-btn {{ cursor: pointer; color: var(--tag); font-size: 15px; }}
-        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 12px; opacity: 0.3; }}
-        .btn-restore {{ cursor: pointer; color: var(--hi); font-size: 14px; display: none; font-weight: bold; }}
         .btn {{ cursor: pointer; padding: 4px 10px; border: 1px solid var(--border); font-size: 11px; border-radius: 4px; background: var(--bg); color: var(--text); font-weight: bold; }}
     </style></head><body>
         <div class='header'>
