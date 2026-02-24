@@ -9,7 +9,8 @@ if sys.platform != 'win32':
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-VERSION = "1.9.2"
+# --- 配置 ---
+VERSION = "2.0.0"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -27,7 +28,6 @@ def load_config():
         try:
             with open('feeds.json', 'r', encoding='utf-8') as f:
                 cfg = json.load(f)
-                # 自動拿掉數位時代 X (Nitter) 來源
                 for zone in ["INTL", "JK", "TW"]:
                     cfg["FEEDS"][zone] = [i for i in cfg["FEEDS"][zone] if "bnextmedia" not in i["url"]]
                 return cfg
@@ -36,67 +36,70 @@ def load_config():
 
 CONFIG = load_config()
 
-def get_ai_keywords(cluster):
+def translate_text(text):
+    if not text: return ""
+    from googletrans import Translator
+    try:
+        res = Translator().translate(text, dest='zh-tw').text
+        for old, new in CONFIG.get('TERM_MAP', {}).items(): res = res.replace(old, new)
+        return res
+    except: return text
+
+def get_company_clusters(articles):
+    """【v2.0.0 核心】請 Gemini 依照『主體公司』進行整批分類"""
     global TOTAL_TOKENS
-    if not client: return []
-    TOTAL_TOKENS += 350
-    titles = [c['raw_title'] for c in cluster]
-    prompt = f"針對以下科技標題提取 3-5 個中文關鍵字標籤，逗號隔開：\n" + "\n".join(titles)
+    if not client or not articles: return [[a] for a in articles]
+    
+    TOTAL_TOKENS += 1500 # 批次處理估算
+    titles_input = "\n".join([f"{i}: {a['raw_title']}" for i, a in enumerate(articles)])
+    
+    prompt = f"""
+    作為科技分析師，請將以下新聞標題依照『主體公司或核心組織』進行分組。
+    
+    【規則】：
+    1. 只要是同一家公司的新聞就分在同一組（例如：所有關於 Google 的放一起）。
+    2. 如果一則新聞涉及多家公司，以『最知名的那一家』為主。
+    3. 只回傳編號分組，每組一行，範例：
+    [0, 5, 12]
+    [1, 8]
+    
+    【待處理清單】：
+    {titles_input}
+    """
+    
     try:
         response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt, config={'temperature': 0.0})
-        kw_str = response.text.replace('、', ',').replace(' ', '')
-        return [k.strip() for k in kw_str.split(',') if k.strip()][:5]
-    except: return []
-
-def validate_and_tag_group(cluster):
-    global TOTAL_TOKENS
-    if not client or len(cluster) < 2: 
-        return [{"group": cluster, "kws": get_ai_keywords(cluster) if client else []}]
-    TOTAL_TOKENS += 300
-    prompt = f"判斷以下新聞是否屬同一個具體技術事件，回傳 YES 或 NO：\n" + "\n".join([c['raw_title'] for c in cluster])
-    try:
-        res = client.models.generate_content(model="gemini-1.5-flash", contents=prompt, config={'temperature':0.0})
-        if "YES" in res.text.upper():
-            return [{"group": cluster, "kws": get_ai_keywords(cluster)}]
-        else:
-            return [{"group": [c], "kws": get_ai_keywords([c])} for c in cluster]
+        groups = []
+        used = set()
+        matches = re.findall(r'\[(.*?)\]', response.text)
+        for m in matches:
+            idx_list = [int(i.strip()) for i in m.split(',') if i.strip().isdigit()]
+            group = []
+            for idx in idx_list:
+                if idx < len(articles) and idx not in used:
+                    group.append(articles[idx]); used.add(idx)
+            if group: groups.append(group)
+        
+        for i, a in enumerate(articles):
+            if i not in used: groups.append([a])
+        return groups
     except:
-        return [{"group": cluster, "kws": []}]
-
-def cluster_articles(articles):
-    if not articles: return []
-    temp_clusters = []
-    for art in sorted(articles, key=lambda x: x['time']):
-        pure_t = re.sub(r'【[^】]*】|\[[^\]]*\]', '', art['raw_title']).strip()
-        best_match_idx = -1
-        for idx, cluster in enumerate(temp_clusters):
-            main_t = re.sub(r'【[^】]*】|\[[^\]]*\]', '', cluster[0]['raw_title']).strip()
-            if difflib.SequenceMatcher(None, main_t, pure_t).ratio() > 0.45:
-                best_match_idx = idx; break
-        if best_match_idx != -1: temp_clusters[best_match_idx].append(art)
-        else: temp_clusters.append([art])
-    output = []
-    for g in temp_clusters: output.extend(validate_and_tag_group(g))
-    return sorted(output, key=lambda x: x['group'][0]['time'], reverse=True)
+        return [[a] for a in articles]
 
 def fetch_data(feed_list):
     global TOTAL_TOKENS
     all_articles = []
     now_tw = datetime.datetime.now(TW_TZ)
-    # 合併黑名單
-    full_blacklist = CONFIG.get("BLACKLIST_GENERAL", []) + CONFIG.get("BLACKLIST_TECH_RELATED", [])
+    bl = CONFIG.get("BLACKLIST_GENERAL", []) + CONFIG.get("BLACKLIST_TECH_RELATED", [])
     
     for item in feed_list:
         try:
             resp = requests.get(item['url'], headers={'User-Agent': 'Mozilla/5.0'}, timeout=25, verify=False)
             feed = feedparser.parse(resp.content)
             s_name = (feed.feed.title if 'title' in feed.feed else item['url'].split('/')[2]).split('|')[0].strip()[:12]
-            for entry in feed.entries[:18]:
+            for entry in feed.entries[:15]:
                 title = re.sub(r'https?://\S+', '', entry.title).strip()
-                if not title: continue
-                # 黑名單過濾
-                if any(b in title for b in full_blacklist): continue
-                
+                if not title or any(b in title for b in bl): continue
                 TOTAL_TOKENS += 50
                 try: p_date = date_parser.parse(entry.get('published', entry.get('pubDate', entry.get('updated', None))), tzinfos=TZ_INFOS).astimezone(TW_TZ)
                 except: p_date = now_tw
@@ -106,31 +109,25 @@ def fetch_data(feed_list):
     return all_articles
 
 def main():
-    print(f"Executing {SITE_TITLE} v{VERSION}")
-    intl = cluster_articles(fetch_data(CONFIG['FEEDS']['INTL']))
-    jk = cluster_articles(fetch_data(CONFIG['FEEDS']['JK']))
-    tw = cluster_articles(fetch_data(CONFIG['FEEDS']['TW']))
+    print(f"Building {SITE_TITLE} v{VERSION}")
+    # 抓取資料
+    intl_raw = fetch_data(CONFIG['FEEDS']['INTL'])
+    jk_raw = fetch_data(CONFIG['FEEDS']['JK'])
+    tw_raw = fetch_data(CONFIG['FEEDS']['TW'])
+    
+    # 公司聚合 (每區單獨聚合一次，避免 Prompt 過長)
+    intl_c = get_company_clusters(intl_raw)
+    jk_c = get_company_clusters(jk_raw)
+    tw_c = get_company_clusters(tw_raw)
 
     def render(clusters, trans):
         html = ""
-        from googletrans import Translator
-        translator = Translator()
-        for item in clusters:
-            g = item['group']; kws = item['kws']; m = g[0]
-            display_t = m['raw_title']
-            # 詞彙轉換 (TERM_MAP)
-            for old, new in CONFIG.get('TERM_MAP', {}).items(): display_t = display_t.replace(old, new)
-            if trans:
-                try: display_t = translator.translate(display_t, dest='zh-tw').text
-                except: pass
-            
+        for g in sorted(clusters, key=lambda x: x[0]['time'], reverse=True):
+            m = g[0]
+            # 主標題一定翻譯
+            main_t = translate_text(m['raw_title']) if trans else m['raw_title']
             hid = str(abs(hash(m['link'])))[:10]
-            # iThome 與其他標籤顯示
-            badge = f'<span class="badge-tag">{m["tag"]}</span>' if m["tag"] else ""
-            if "iThome" in m["tag"]:
-                badge = f'<span class="badge-ithome">iThome</span>'
-            
-            kw_html = "".join([f"<span class='kw-tag'>{k}</span>" for k in kws])
+            badge = f'<span class="badge-ithome">iThome</span>' if "iThome" in m['tag'] else (f'<span class="badge-tag">{m["tag"]}</span>' if m["tag"] else "")
             
             html += f"""
             <div class='story-block' id='sb-{hid}' data-link='{m['link']}'>
@@ -138,9 +135,8 @@ def main():
                     <span class='star-btn' onclick='toggleStar("{hid}")'>★</span>
                     <div class='head-content'>
                         <div class='title-row'>
-                            {badge}<a class='headline' href='{m['link']}' target='_blank'>{display_t}</a>
+                            {badge}<a class='headline' href='{m['link']}' target='_blank'>{main_t}</a>
                         </div>
-                        <div class='kw-container'>{kw_html}</div>
                     </div>
                     <span class='btn-hide' onclick='toggleHide("{hid}")'>✕</span>
                 </div>
@@ -148,8 +144,10 @@ def main():
             """
             if len(g) > 1:
                 html += "<div class='sub-news-list'>"
-                for s in g[1:4]:
-                    html += f"<div class='sub-item'>• <a href='{s['link']}' target='_blank'>{s['raw_title'][:45]}...</a></div>"
+                for s in g[1:6]:
+                    # 子新聞也強制翻譯，防止原文混雜
+                    sub_t = translate_text(s['raw_title']) if trans else s['raw_title']
+                    html += f"<div class='sub-item'>• <a href='{s['link']}' target='_blank'>{sub_t[:50]}...</a> <small>({s['source']})</small></div>"
                 html += "</div>"
             html += "</div>"
         return html
@@ -166,24 +164,26 @@ def main():
         body {{ font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 15px 50px 15px; line-height: 1.4; }}
         .header {{ padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; background: var(--bg); z-index: 1000; }}
         #stats-p {{ display: none; padding: 15px 0; border-bottom: 1px solid var(--border); }}
-        .token-bar {{ background: var(--hi); color: #fff; padding: 5px 12px; border-radius: 4px; font-size: 11px; margin-bottom: 10px; display: inline-block; }}
+        .token-bar {{ background: var(--hi); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; margin-bottom: 10px; display: inline-block; }}
         #stats-p ul {{ list-style: none; padding: 0; margin: 0; column-count: 2; column-gap: 30px; }}
-        .wrapper {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; }}
+        .wrapper {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }}
         @media (max-width: 900px) {{ .wrapper {{ grid-template-columns: 1fr; }} }}
-        .river {{ background: var(--bg); padding: 10px 0; }}
+        .river {{ padding: 10px 0; }}
         .river-title {{ font-size: 16px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 10px; }}
         .story-block {{ padding: 12px 0; border-bottom: 1px solid var(--border); }}
         .headline-wrapper {{ display: flex; align-items: flex-start; gap: 8px; }}
-        .head-content {{ flex-grow: 1; min-width: 0; display: flex; flex-direction: column; }}
+        .head-content {{ flex-grow: 1; min-width: 0; }}
         .title-row {{ display: flex; align-items: flex-start; gap: 5px; }}
-        .headline {{ font-size: 14px; font-weight: 800; text-decoration: none; color: var(--link); line-height: 1.3; }}
-        .kw-container {{ margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }}
-        .kw-tag {{ background: #8881; color: var(--tag); font-size: 9px; padding: 1px 6px; border-radius: 4px; border: 1px solid #8882; }}
+        .headline {{ font-size: 14.5px; font-weight: 800; text-decoration: none; color: var(--link); line-height: 1.3; }}
         .meta-line {{ font-size: 10px; color: var(--tag); margin-top: 5px; margin-left: 23px; }}
-        .badge-tag {{ background: #888; color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; flex-shrink: 0; margin-top: 2px; }}
-        .badge-ithome {{ background: var(--hi); color: #fff; padding: 1px 4px; font-size: 8px; border-radius: 2px; font-weight: 800; flex-shrink: 0; margin-top: 2px; }}
-        .star-btn {{ cursor: pointer; color: var(--tag); font-size: 14px; flex-shrink: 0; margin-top: 2px; }}
-        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 11px; opacity: 0.4; flex-shrink: 0; margin-top: 2px; }}
+        .sub-news-list {{ margin: 6px 0 0 23px; border-left: 1px solid var(--border); padding-left: 10px; }}
+        .sub-item {{ font-size: 12px; margin-bottom: 3px; color: var(--text); opacity: 0.85; }}
+        .sub-item a {{ text-decoration: none; color: inherit; border-bottom: 1px solid transparent; }}
+        .sub-item a:hover {{ border-bottom: 1px solid var(--tag); }}
+        .badge-tag {{ background: #888; color: #fff; padding: 1px 4px; font-size: 8.5px; border-radius: 2px; flex-shrink: 0; }}
+        .badge-ithome {{ background: var(--hi); color: #fff; padding: 1px 4px; font-size: 8.5px; border-radius: 2px; font-weight: 800; flex-shrink: 0; }}
+        .star-btn {{ cursor: pointer; color: var(--tag); font-size: 14px; flex-shrink: 0; }}
+        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 11px; opacity: 0.4; margin-left: auto; }}
         .btn {{ cursor: pointer; padding: 4px 10px; border: 1px solid var(--border); font-size: 11px; border-radius: 4px; background: var(--bg); color: var(--text); font-weight: bold; }}
     </style></head><body>
         <div class='header'>
@@ -192,9 +192,9 @@ def main():
         </div>
         <div id='stats-p'>{stats_header}<ul>{stats_rows}</ul></div>
         <div class='wrapper'>
-            <div class='river'><div class='river-title'>Global</div>{render(intl, True)}</div>
-            <div class='river'><div class='river-title'>JK</div>{render(jk, True)}</div>
-            <div class='river'><div class='river-title'>Taiwan</div>{render(tw, False)}</div>
+            <div class='river'><div class='river-title'>Global</div>{render(intl_c, True)}</div>
+            <div class='river'><div class='river-title'>JK</div>{render(jk_c, True)}</div>
+            <div class='river'><div class='river-title'>Taiwan</div>{render(tw_c, False)}</div>
         </div>
         <script>
             function toggleHide(h) {{ document.getElementById('sb-'+h).style.display = 'none'; }}
