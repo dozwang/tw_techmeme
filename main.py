@@ -8,11 +8,11 @@ if sys.platform != 'win32':
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 核心配置 ---
-VERSION = "2.4.4"
+VERSION = "2.5.0"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-# 暫時切換模型，避開 2.0 Lite 的配額限制
-MODEL_NAME = "gemini-1.5-flash" 
+# 切換至 Gemma 3 27B 訓練指令版
+MODEL_NAME = "gemma-3-27b-it" 
 
 client = genai.Client(api_key=GEMINI_KEY) if GEMINI_KEY else None
 
@@ -30,11 +30,12 @@ def load_config():
 CONFIG = load_config()
 
 def get_processed_content(articles, zone_name):
-    """【v2.4.4】切換模型並強化冷卻"""
+    """【v2.5.0】Gemma 3 驅動：翻譯與公司聚合"""
     if not client or not articles: return [[a] for a in articles]
     
-    print(f"\n>>> 處理 {zone_name} 區域，共 {len(articles)} 則")
-    chunk_size = 15 # 縮小規模，降低 API 壓力
+    print(f"\n>>> 處理 {zone_name} 區域，共 {len(articles)} 則新聞")
+    # Gemma 3 建議使用較小的分塊以維持 JSON 穩定度
+    chunk_size = 10 
     final_clusters = []
     used_indices = set()
 
@@ -44,17 +45,21 @@ def get_processed_content(articles, zone_name):
         
         prompt = f"""
         任務：翻譯為繁體中文並依公司聚合。
-        1. 翻譯為繁中，移除雜訊(Send tips, URL, Axios)。
+        指令：
+        1. 翻譯為繁中，移除雜訊(Send tips, URL, Axios, 📩)。
         2. 術語轉換：智能->智慧、數據->資料、芯片->晶片、算力->運算力。
-        3. 回傳純 JSON 格式：[ {{"company": "公司名", "indices": [編號], "titles": ["翻譯標題"]}} ]
-        待處理清單：{titles_input}
+        3. 聚合：主體公司相同則必須分在同組。
+        4. 必須回傳純 JSON 格式。
+        範例格式：[ {{"company": "公司名", "indices": [編號], "titles": ["翻譯標題"]}} ]
+        
+        待處理清單：
+        {titles_input}
         """
 
         retry_count = 0
         while retry_count < 2:
             try:
-                # 呼叫 1.5 Flash 看看是否有額度
-                response = client.models.generate_content(model=MODEL_NAME, contents=prompt, config={'temperature': 0.0})
+                response = client.models.generate_content(model=MODEL_NAME, contents=prompt, config={'temperature': 0.1})
                 json_match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
                 
                 if json_match:
@@ -64,26 +69,27 @@ def get_processed_content(articles, zone_name):
                         for i, idx in enumerate(group['indices']):
                             if idx < len(articles) and idx not in used_indices:
                                 item = articles[idx]
-                                item['display_title'] = re.sub(r'https?://\S+|Send tips!|📩', '', group['titles'][i]).strip()
+                                clean_t = re.sub(r'https?://\S+|Send tips!|📩', '', group['titles'][i]).strip()
+                                item['display_title'] = clean_t
                                 cluster.append(item); used_indices.add(idx)
                         if cluster: final_clusters.append(cluster)
-                    print(f"  [OK] 區塊 {start} 處理完成")
+                    print(f"  [OK] 區塊 {start} 處理成功")
                     break 
                 else:
-                    print(f"  [!] 區塊 {start} JSON 解析失敗")
+                    print(f"  [!] 區塊 {start} 解析 JSON 失敗")
                     break
             except Exception as e:
                 if "429" in str(e):
-                    # 如果連 1.5 都在 429，就加長等待
-                    print(f"  [!] 1.5 模型也限流，冷卻 30 秒...")
-                    time.sleep(30)
+                    wait_time = 35
+                    print(f"  [!] 觸發限流，等待 {wait_time} 秒...")
+                    time.sleep(wait_time)
                     retry_count += 1
                 else:
-                    print(f"  [Error] {str(e)}")
+                    print(f"  [Error] 異常: {str(e)}")
                     break
-        # 強制冷卻，每組之間多等幾秒
-        time.sleep(5) 
+        time.sleep(2) 
 
+    # 補漏
     for i, a in enumerate(articles):
         if i not in used_indices:
             a['display_title'] = a['raw_title']
@@ -100,8 +106,8 @@ def fetch_raw_data(feed_list):
             resp = requests.get(item['url'], headers={'User-Agent': 'Mozilla/5.0'}, timeout=15, verify=False)
             feed = feedparser.parse(resp.content)
             s_name = (feed.feed.title if 'title' in feed.feed else item['url'].split('/')[2]).split('|')[0].strip()[:10]
-            for entry in feed.entries[:8]: # 再縮減抓取量，減輕 API 負擔
-                title = entry.title.strip()
+            for entry in feed.entries[:10]:
+                title = re.sub(r'https?://\S+|Send tips!|📩', '', entry.title).strip()
                 if not title: continue
                 try: p_date = date_parser.parse(entry.get('published', entry.get('pubDate', entry.get('updated', None))), tzinfos=TZ_INFOS).astimezone(TW_TZ)
                 except: p_date = now_tw
@@ -112,12 +118,11 @@ def fetch_raw_data(feed_list):
     return all_articles
 
 def main():
-    print(f"Executing {SITE_TITLE} v{VERSION}...")
+    print(f"Executing {SITE_TITLE} v{VERSION} (Gemma 3 Powered)...")
     intl = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['INTL']), "Global")
     jk = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['JK']), "JK")
     tw = get_processed_content(fetch_raw_data(CONFIG['FEEDS']['TW']), "Taiwan")
 
-    # 渲染邏輯維持不變
     def render(clusters):
         html = ""
         for g in sorted(clusters, key=lambda x: x[0]['time'], reverse=True):
@@ -147,6 +152,10 @@ def main():
             html += "</div>"
         return html
 
-    # 此處銜接先前的 HTML 渲染邏輯，直接生成 index.html
-    # (省略部分重複的 CSS/HTML 內容以維持簡潔)
-    # ...
+    # ... 此處繼續完整的 HTML 渲染邏輯，直接生成 index.html ...
+    # (省略與之前版本一致的 CSS 部分)
+    full_html = f"<html>...{render(intl)}...</html>" # 實際請使用完整 HTML 結構
+    with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
+
+if __name__ == "__main__":
+    main()
