@@ -10,7 +10,7 @@ if sys.platform != 'win32':
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 配置 ---
-VERSION = "2.0.0"
+VERSION = "2.0.3"
 SITE_TITLE = "豆子新聞戰情室"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -38,35 +38,25 @@ CONFIG = load_config()
 
 def translate_text(text):
     if not text: return ""
-    from googletrans import Translator
-    try:
-        res = Translator().translate(text, dest='zh-tw').text
-        for old, new in CONFIG.get('TERM_MAP', {}).items(): res = res.replace(old, new)
-        return res
-    except: return text
+    text = re.sub(r'發送提示！|https?://\S+', '', text).strip()
+    if not text: return ""
+    if not re.search(r'[\u4e00-\u9fff]', text):
+        from googletrans import Translator
+        try:
+            res = Translator().translate(text, dest='zh-tw').text
+            if res:
+                for old, new in CONFIG.get('TERM_MAP', {}).items():
+                    res = res.replace(old, new)
+                return res
+        except: return text
+    return text
 
 def get_company_clusters(articles):
-    """【v2.0.0 核心】請 Gemini 依照『主體公司』進行整批分類"""
     global TOTAL_TOKENS
     if not client or not articles: return [[a] for a in articles]
-    
-    TOTAL_TOKENS += 1500 # 批次處理估算
+    TOTAL_TOKENS += 1500
     titles_input = "\n".join([f"{i}: {a['raw_title']}" for i, a in enumerate(articles)])
-    
-    prompt = f"""
-    作為科技分析師，請將以下新聞標題依照『主體公司或核心組織』進行分組。
-    
-    【規則】：
-    1. 只要是同一家公司的新聞就分在同一組（例如：所有關於 Google 的放一起）。
-    2. 如果一則新聞涉及多家公司，以『最知名的那一家』為主。
-    3. 只回傳編號分組，每組一行，範例：
-    [0, 5, 12]
-    [1, 8]
-    
-    【待處理清單】：
-    {titles_input}
-    """
-    
+    prompt = f"將標題依照『主體公司』分組。同一家公司必須分在同一組(如 Anthropic, Google)，忽略動作差異。只需回傳編號分組，範例：\n[0, 5]\n[1]\n\n【清單】：\n{titles_input}"
     try:
         response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt, config={'temperature': 0.0})
         groups = []
@@ -79,17 +69,17 @@ def get_company_clusters(articles):
                 if idx < len(articles) and idx not in used:
                     group.append(articles[idx]); used.add(idx)
             if group: groups.append(group)
-        
         for i, a in enumerate(articles):
             if i not in used: groups.append([a])
         return groups
-    except:
-        return [[a] for a in articles]
+    except: return [[a] for a in articles]
 
 def fetch_data(feed_list):
     global TOTAL_TOKENS
     all_articles = []
     now_tw = datetime.datetime.now(TW_TZ)
+    # 【v2.0.3】設定 4 天的時間門檻
+    limit_date = now_tw - datetime.timedelta(days=4)
     bl = CONFIG.get("BLACKLIST_GENERAL", []) + CONFIG.get("BLACKLIST_TECH_RELATED", [])
     
     for item in feed_list:
@@ -98,39 +88,46 @@ def fetch_data(feed_list):
             feed = feedparser.parse(resp.content)
             s_name = (feed.feed.title if 'title' in feed.feed else item['url'].split('/')[2]).split('|')[0].strip()[:12]
             for entry in feed.entries[:15]:
-                title = re.sub(r'https?://\S+', '', entry.title).strip()
+                title = re.sub(r'https?://\S+|發送提示！', '', entry.title).strip()
                 if not title or any(b in title for b in bl): continue
+                
+                # 【v2.0.3】解析日期並檢查是否在 4 天內
+                try: 
+                    p_date = date_parser.parse(entry.get('published', entry.get('pubDate', entry.get('updated', None))), tzinfos=TZ_INFOS).astimezone(TW_TZ)
+                except: 
+                    p_date = now_tw
+                
+                if p_date < limit_date: continue # 太舊的直接跳過
+                
                 TOTAL_TOKENS += 50
-                try: p_date = date_parser.parse(entry.get('published', entry.get('pubDate', entry.get('updated', None))), tzinfos=TZ_INFOS).astimezone(TW_TZ)
-                except: p_date = now_tw
                 all_articles.append({'raw_title': title, 'link': entry.link, 'source': s_name, 'time': p_date, 'tag': item['tag']})
                 FINAL_STATS[s_name] = FINAL_STATS.get(s_name, 0) + 1
         except: continue
     return all_articles
 
 def main():
-    print(f"Building {SITE_TITLE} v{VERSION}")
-    # 抓取資料
+    print(f"Building {SITE_TITLE} v{VERSION}...")
     intl_raw = fetch_data(CONFIG['FEEDS']['INTL'])
     jk_raw = fetch_data(CONFIG['FEEDS']['JK'])
     tw_raw = fetch_data(CONFIG['FEEDS']['TW'])
     
-    # 公司聚合 (每區單獨聚合一次，避免 Prompt 過長)
     intl_c = get_company_clusters(intl_raw)
     jk_c = get_company_clusters(jk_raw)
     tw_c = get_company_clusters(tw_raw)
 
-    def render(clusters, trans):
+    def render(clusters):
         html = ""
         for g in sorted(clusters, key=lambda x: x[0]['time'], reverse=True):
             m = g[0]
-            # 主標題一定翻譯
-            main_t = translate_text(m['raw_title']) if trans else m['raw_title']
+            main_t = translate_text(m['raw_title'])
             hid = str(abs(hash(m['link'])))[:10]
             badge = f'<span class="badge-ithome">iThome</span>' if "iThome" in m['tag'] else (f'<span class="badge-tag">{m["tag"]}</span>' if m["tag"] else "")
             
+            # 【v2.0.3】存入時間戳記供 JS 清理快取使用
+            timestamp = int(m['time'].timestamp())
+            
             html += f"""
-            <div class='story-block' id='sb-{hid}' data-link='{m['link']}'>
+            <div class='story-block' id='sb-{hid}' data-link='{m['link']}' data-ts='{timestamp}'>
                 <div class='headline-wrapper'>
                     <span class='star-btn' onclick='toggleStar("{hid}")'>★</span>
                     <div class='head-content'>
@@ -145,9 +142,8 @@ def main():
             if len(g) > 1:
                 html += "<div class='sub-news-list'>"
                 for s in g[1:6]:
-                    # 子新聞也強制翻譯，防止原文混雜
-                    sub_t = translate_text(s['raw_title']) if trans else s['raw_title']
-                    html += f"<div class='sub-item'>• <a href='{s['link']}' target='_blank'>{sub_t[:50]}...</a> <small>({s['source']})</small></div>"
+                    sub_t = translate_text(s['raw_title'])
+                    html += f"<div class='sub-item'>• <a href='{s['link']}' target='_blank'>{sub_t[:55]}...</a> <small>({s['source']})</small></div>"
                 html += "</div>"
             html += "</div>"
         return html
@@ -171,37 +167,83 @@ def main():
         .river {{ padding: 10px 0; }}
         .river-title {{ font-size: 16px; font-weight: 900; border-bottom: 2px solid var(--text); margin-bottom: 10px; }}
         .story-block {{ padding: 12px 0; border-bottom: 1px solid var(--border); }}
+        .story-block.is-hidden {{ display: none; }}
+        body.show-hidden .story-block.is-hidden {{ display: block !important; opacity: 0.4; }}
         .headline-wrapper {{ display: flex; align-items: flex-start; gap: 8px; }}
         .head-content {{ flex-grow: 1; min-width: 0; }}
         .title-row {{ display: flex; align-items: flex-start; gap: 5px; }}
         .headline {{ font-size: 14.5px; font-weight: 800; text-decoration: none; color: var(--link); line-height: 1.3; }}
         .meta-line {{ font-size: 10px; color: var(--tag); margin-top: 5px; margin-left: 23px; }}
         .sub-news-list {{ margin: 6px 0 0 23px; border-left: 1px solid var(--border); padding-left: 10px; }}
-        .sub-item {{ font-size: 12px; margin-bottom: 3px; color: var(--text); opacity: 0.85; }}
-        .sub-item a {{ text-decoration: none; color: inherit; border-bottom: 1px solid transparent; }}
-        .sub-item a:hover {{ border-bottom: 1px solid var(--tag); }}
+        .sub-item {{ font-size: 12px; margin-bottom: 3px; color: var(--text); }}
         .badge-tag {{ background: #888; color: #fff; padding: 1px 4px; font-size: 8.5px; border-radius: 2px; flex-shrink: 0; }}
         .badge-ithome {{ background: var(--hi); color: #fff; padding: 1px 4px; font-size: 8.5px; border-radius: 2px; font-weight: 800; flex-shrink: 0; }}
         .star-btn {{ cursor: pointer; color: var(--tag); font-size: 14px; flex-shrink: 0; }}
-        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 11px; opacity: 0.4; margin-left: auto; }}
         .btn {{ cursor: pointer; padding: 4px 10px; border: 1px solid var(--border); font-size: 11px; border-radius: 4px; background: var(--bg); color: var(--text); font-weight: bold; }}
+        .btn-hide {{ cursor: pointer; color: var(--tag); font-size: 11px; opacity: 0.4; margin-left: auto; }}
     </style></head><body>
         <div class='header'>
             <h1 style='margin:0; font-size:16px;'>{SITE_TITLE} v{VERSION}</h1>
-            <div><span class='btn' onclick='document.getElementById("stats-p").style.display=(document.getElementById("stats-p").style.display==="block")?"none":"block"'>📊 分析</span> <span class='btn' onclick='location.reload()'>🔄</span></div>
+            <div style='display:flex; gap:8px;'>
+                <span class='btn' onclick='document.getElementById("stats-p").style.display=(document.getElementById("stats-p").style.display==="block")?"none":"block"'>📊 分析</span>
+                <span class='btn' onclick='document.body.classList.toggle("show-hidden")'>👁️ 恢復</span>
+                <span class='btn' onclick='location.reload()'>🔄</span>
+            </div>
         </div>
         <div id='stats-p'>{stats_header}<ul>{stats_rows}</ul></div>
         <div class='wrapper'>
-            <div class='river'><div class='river-title'>Global</div>{render(intl_c, True)}</div>
-            <div class='river'><div class='river-title'>JK</div>{render(jk_c, True)}</div>
-            <div class='river'><div class='river-title'>Taiwan</div>{render(tw_c, False)}</div>
+            <div class='river'><div class='river-title'>Global</div>{render(intl_c)}</div>
+            <div class='river'><div class='river-title'>JK</div>{render(jk_c)}</div>
+            <div class='river'><div class='river-title'>Taiwan</div>{render(tw_c)}</div>
         </div>
         <script>
-            function toggleHide(h) {{ document.getElementById('sb-'+h).style.display = 'none'; }}
-            function toggleStar(h) {{
-                const btn = document.getElementById('sb-'+h).querySelector('.star-btn');
-                btn.style.color = btn.style.color === 'rgb(241, 196, 15)' ? '' : '#f1c40f';
+            const SEVEN_DAYS = 7 * 24 * 60 * 60;
+            const now = Math.floor(Date.now() / 1000);
+
+            function toggleHide(h) {{
+                const el = document.getElementById('sb-'+h);
+                const link = el.getAttribute('data-link');
+                const ts = el.getAttribute('data-ts');
+                let hiddens = JSON.parse(localStorage.getItem('tech_hiddens_v2') || '[]');
+                if(!hiddens.some(i => i.l === link)) hiddens.push({{l: link, t: ts}});
+                localStorage.setItem('tech_hiddens_v2', JSON.stringify(hiddens));
+                el.classList.add('is-hidden');
             }}
+
+            function toggleStar(h) {{
+                const el = document.getElementById('sb-'+h);
+                const btn = el.querySelector('.star-btn');
+                const link = el.getAttribute('data-link');
+                const ts = el.getAttribute('data-ts');
+                let stars = JSON.parse(localStorage.getItem('tech_stars_v2') || '[]');
+                const idx = stars.findIndex(i => i.l === link);
+                if(idx > -1) {{
+                    stars.splice(idx, 1);
+                    btn.style.color = '';
+                }} else {{
+                    stars.push({{l: link, t: ts}});
+                    btn.style.color = '#f1c40f';
+                }}
+                localStorage.setItem('tech_stars_v2', JSON.stringify(stars));
+            }}
+
+            document.addEventListener('DOMContentLoaded', () => {{
+                // 【v2.0.3】清理超過 7 天的快取
+                let hiddens = JSON.parse(localStorage.getItem('tech_hiddens_v2') || '[]');
+                let stars = JSON.parse(localStorage.getItem('tech_stars_v2') || '[]');
+                
+                hiddens = hiddens.filter(i => (now - i.t) < SEVEN_DAYS);
+                stars = stars.filter(i => (now - i.t) < SEVEN_DAYS);
+                
+                localStorage.setItem('tech_hiddens_v2', JSON.stringify(hiddens));
+                localStorage.setItem('tech_stars_v2', JSON.stringify(stars));
+
+                document.querySelectorAll('.story-block').forEach(el => {{
+                    const link = el.getAttribute('data-link');
+                    if(hiddens.some(i => i.l === link)) el.classList.add('is-hidden');
+                    if(stars.some(i => i.l === link)) el.querySelector('.star-btn').style.color = '#f1c40f';
+                }});
+            }});
         </script></body></html>
     """
     with open('index.html', 'w', encoding='utf-8') as f: f.write(full_html)
