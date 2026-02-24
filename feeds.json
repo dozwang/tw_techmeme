@@ -29,8 +29,6 @@
       {"url": "https://technews.tw/feed/", "tag": ""},
       {"url": "https://www.digitimes.com.tw/rss/news.xml", "tag": ""},
       {"url": "https://www.cio.com.tw/feed/", "tag": ""},
-      {"url": "https://www.bnext.com.tw/rss", "tag": ""},
-      {"url": "https://nitter.net/bnextmedia/rss", "tag": "[X]"},
       {"url": "https://nitter.net/ithome/rss", "tag": "[X]"}
     ]
   },
